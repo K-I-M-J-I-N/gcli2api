@@ -128,6 +128,7 @@
     "yargs": "^17.7.2"
   },
   "dependencies": {
+    "ajv": "^8.18.0",
     "ink": "npm:@jrichman/ink@6.4.11",
     "latest-version": "^9.0.0",
     "proper-lockfile": "^4.1.2",
