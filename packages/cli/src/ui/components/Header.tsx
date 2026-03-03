@@ -5,7 +5,7 @@
  */
 
 import type React from 'react';
-import { Box } from 'ink';
+import { Box, Text } from 'ink';
 import { ThemedGradient } from './ThemedGradient.js';
 import { shortAsciiLogo, longAsciiLogo, tinyAsciiLogo } from './AsciiArt.js';
 import { getAsciiArtWidth } from '../utils/textUtils.js';
@@ -49,6 +49,19 @@ export const Header: React.FC<HeaderProps> = ({
       flexDirection="column"
     >
       <ThemedGradient>{title}</ThemedGradient>
+      <Box
+        flexDirection="column"
+        paddingLeft={1}
+        paddingTop={1}
+        paddingBottom={1}
+      >
+        <Text dimColor>not-my-gemini Added Features:</Text>
+        <Text dimColor>- Endless Parallel Retry for 429</Text>
+        <Text dimColor>- PowerShell 7 Fallback</Text>
+        <Text dimColor>
+          * When these features are triggered, a ❄️ emoji is displayed.
+        </Text>
+      </Box>
       {nightly && (
         <Box width="100%" flexDirection="row" justifyContent="flex-end">
           <ThemedGradient>v{version}</ThemedGradient>
