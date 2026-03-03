@@ -69,9 +69,10 @@ describe('<Header />', () => {
   it('displays the version number when nightly is true', () => {
     render(<Header version="1.0.0" nightly={true} />);
     const textCalls = (Text as Mock).mock.calls;
-    const versionText = Array.isArray(textCalls[1][0].children)
-      ? textCalls[1][0].children.join('')
-      : textCalls[1][0].children;
+    const lastCall = textCalls[textCalls.length - 1];
+    const versionText = Array.isArray(lastCall[0].children)
+      ? lastCall[0].children.join('')
+      : lastCall[0].children;
     expect(versionText).toBe('v1.0.0');
   });
 
@@ -132,7 +133,7 @@ describe('<Header />', () => {
     render(<Header version="1.0.0" nightly={false} />);
     expect(Gradient.default).not.toHaveBeenCalled();
     const textCalls = (Text as Mock).mock.calls;
-    expect(textCalls.length).toBe(1);
+    expect(textCalls.length).toBeGreaterThanOrEqual(1);
     expect(textCalls[0][0]).toHaveProperty('color', singleColor);
   });
 

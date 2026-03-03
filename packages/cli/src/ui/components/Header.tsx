@@ -58,9 +58,6 @@ export const Header: React.FC<HeaderProps> = ({
         <Text dimColor>not-my-gemini Added Features:</Text>
         <Text dimColor>- Endless Parallel Retry for 429</Text>
         <Text dimColor>- PowerShell 7 Fallback</Text>
-        <Text dimColor>
-          * When these features are triggered, a ❄️ emoji is displayed.
-        </Text>
       </Box>
       {nightly && (
         <Box width="100%" flexDirection="row" justifyContent="flex-end">
