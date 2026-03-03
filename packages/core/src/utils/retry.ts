@@ -155,9 +155,11 @@ export function isRetryableError(
 /**
  * Runs multiple copies of an async function slightly staggered in time, and races them.
  * Resolves with the first successful result.
- * If all fail, throws an AggregateError containing all errors.
+ * If any lane encounters a RetryableQuotaError, it will wait 1 second and retry itself indefinitely
+ * until the whole race wins or it hits a non-429 error.
+ * If all lanes fail with non-429 errors, throws an AggregateError containing all errors.
  */
-async function raceWithStagger<T>(
+async function raceWithContinuousRetries<T>(
   fn: () => Promise<T>,
   count: number,
   staggerMs: number,
@@ -166,15 +168,27 @@ async function raceWithStagger<T>(
   const promises: Array<Promise<T>> = [];
 
   for (let i = 0; i < count; i++) {
-    if (signal?.aborted) throw createAbortError();
-
     const promise = (async () => {
       if (i > 0) {
-        // Stagger subsequent requests
-        await delay(staggerMs, signal);
+        // Stagger initial starts
+        await delay(i * staggerMs, signal);
       }
-      if (signal?.aborted) throw createAbortError();
-      return fn();
+
+      while (true) {
+        if (signal?.aborted) throw createAbortError();
+        try {
+          return await fn();
+        } catch (error) {
+          if (signal?.aborted) throw createAbortError();
+          const classifiedError = classifyGoogleError(error);
+          if (classifiedError instanceof RetryableQuotaError) {
+            // Unconditional 1s delay per lane on 429 High Demand
+            await delay(1000, signal);
+            continue;
+          }
+          throw error;
+        }
+      }
     })();
     promises.push(promise);
   }
@@ -340,11 +354,23 @@ export async function retryWithBackoff<T>(
         }
 
         if (classifiedError instanceof RetryableQuotaError) {
-          const designatedDelay = classifiedError.retryDelayMs ?? 10000; // Fallback 10s if backend doesn't provide delay
-          currentDelay = Math.max(currentDelay, designatedDelay);
-          // Positive jitter up to +20% while respecting server minimum delay
+          const isParallelRetryActive =
+            parallelRetryCount &&
+            parallelRetryCount > 1 &&
+            attempt < maxAttempts;
+
+          if (isParallelRetryActive) {
+            // As requested: Unconditionally wait 1 second upon first 429 error and trigger continuous parallel retries.
+            currentDelay = 1000;
+          } else {
+            // Standard backoff behavior for non-parallel or exhausted parallel
+            const designatedDelay = classifiedError.retryDelayMs ?? 10000;
+            currentDelay = Math.max(currentDelay, designatedDelay);
+          }
+
           const jitter = currentDelay * 0.2 * Math.random();
           const delayWithJitter = currentDelay + jitter;
+
           debugLogger.warn(
             `Attempt ${attempt} failed: ${classifiedError.message}. Retrying after ${Math.round(delayWithJitter)}ms...`,
           );
@@ -352,30 +378,26 @@ export async function retryWithBackoff<T>(
             onRetry(attempt, error, delayWithJitter, false);
           }
           await delay(delayWithJitter, signal);
-          currentDelay = Math.min(maxDelayMs, currentDelay * 2);
 
-          if (
-            parallelRetryCount &&
-            parallelRetryCount > 1 &&
-            attempt < maxAttempts
-          ) {
+          if (isParallelRetryActive) {
+            currentDelay = Math.min(maxDelayMs, currentDelay * 2);
             attempt++;
             if (signal?.aborted) throw createAbortError();
             debugLogger.warn(
-              `Triggering parallel retry with ${parallelRetryCount} concurrent requests (staggered 1000ms)...`,
+              `Triggering continuous parallel retry with ${parallelRetryCount} concurrent requests...`,
             );
             if (onRetry) {
               onRetry(attempt, error, 0, true);
             }
             try {
-              return await raceWithStagger(
+              return await raceWithContinuousRetries(
                 fn,
                 parallelRetryCount,
                 1000,
                 signal,
               );
             } catch (staggerError: unknown) {
-              // If the staggered race also fails, we record it as one single attempt block
+              // If the staggered race also fails (e.g. all 3 lanes hit 500 errors), handle it natively.
               // and let the loop naturally continue handling the error (which was presumably the same 429 or others).
               // We grab the first error from the AggregateError or use it directly.
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
