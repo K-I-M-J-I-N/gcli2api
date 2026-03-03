@@ -37,7 +37,12 @@ export interface RetryOptions {
   retryFetchErrors?: boolean;
   signal?: AbortSignal;
   getAvailabilityContext?: () => RetryAvailabilityContext | undefined;
-  onRetry?: (attempt: number, error: unknown, delayMs: number) => void;
+  onRetry?: (
+    attempt: number,
+    error: unknown,
+    delayMs: number,
+    isParallel?: boolean,
+  ) => void;
   parallelRetryCount?: number;
 }
 
@@ -346,7 +351,7 @@ export async function retryWithBackoff<T>(
             `Attempt ${attempt} failed: ${classifiedError.message}. Retrying after ${Math.round(delayWithJitter)}ms...`,
           );
           if (onRetry) {
-            onRetry(attempt, error, delayWithJitter);
+            onRetry(attempt, error, delayWithJitter, false);
           }
           await delay(delayWithJitter, signal);
           currentDelay = Math.min(maxDelayMs, currentDelay * 2);
@@ -361,6 +366,9 @@ export async function retryWithBackoff<T>(
             debugLogger.warn(
               `Triggering parallel retry with ${parallelRetryCount} concurrent requests (staggered 1000ms)...`,
             );
+            if (onRetry) {
+              onRetry(attempt, error, 0, true);
+            }
             try {
               return await raceWithStagger(
                 fn,
