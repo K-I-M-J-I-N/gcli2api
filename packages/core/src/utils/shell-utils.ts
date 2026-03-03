@@ -535,6 +535,22 @@ export function parseCommandDetails(
   return null;
 }
 
+let defaultWindowsShell: string | null = null;
+function getDefaultWindowsShell(): string {
+  if (defaultWindowsShell) return defaultWindowsShell;
+
+  defaultWindowsShell = 'powershell.exe';
+  try {
+    const result = spawnSync('pwsh.exe', ['-Version'], { windowsHide: true });
+    if (!result.error && result.status === 0) {
+      defaultWindowsShell = 'pwsh.exe';
+    }
+  } catch {
+    // Ignored
+  }
+  return defaultWindowsShell;
+}
+
 /**
  * Determines the appropriate shell configuration for the current platform.
  *
@@ -560,9 +576,9 @@ export function getShellConfiguration(): ShellConfiguration {
       }
     }
 
-    // Default to PowerShell for all other Windows configurations.
+    // Default to PowerShell Core (pwsh.exe) if available, otherwise Windows PowerShell (powershell.exe)
     return {
-      executable: 'powershell.exe',
+      executable: getDefaultWindowsShell(),
       argsPrefix: ['-NoProfile', '-Command'],
       shell: 'powershell',
     };

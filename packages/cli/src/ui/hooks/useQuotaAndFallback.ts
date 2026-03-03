@@ -92,12 +92,16 @@ export function useQuotaAndFallback({
           message = messageLines.join('\n');
         }
       } else {
-        const messageLines = [
-          `We are currently experiencing high demand.`,
-          'We apologize and appreciate your patience.',
-          '/model to switch models.',
-        ];
-        message = messageLines.join('\n');
+        historyManager.addItem(
+          {
+            type: MessageType.INFO,
+            text: `High demand for ${failedModel}. Automatically retrying continuously until successful...`,
+          },
+          Date.now(),
+        );
+        // Wait 2 seconds before returning to core agent loop (which also has its own backoff)
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        return 'retry_once';
       }
 
       setModelSwitchedFromQuotaError(true);

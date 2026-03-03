@@ -1,0 +1,55 @@
+
+> @google/gemini-cli@0.30.0-nightly.20260210.a2174751d lint:all
+> node scripts/lint.js
+
+Setting up linters...
+Installing actionlint...
+Installing shellcheck...
+Installing yamllint...
+Requirement already satisfied: pip in c:\users\jinme\appdata\local\temp\gemini-cli-linters\python_venv\lib\site-packages (24.0)
+Collecting pip
+  Using cached pip-26.0.1-py3-none-any.whl.metadata (4.7 kB)
+Using cached pip-26.0.1-py3-none-any.whl (1.8 MB)
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 24.0
+    Uninstalling pip-24.0:
+      Successfully uninstalled pip-24.0
+Successfully installed pip-26.0.1
+Collecting yamllint==1.35.1
+  Using cached yamllint-1.35.1-py3-none-any.whl.metadata (4.2 kB)
+Collecting pathspec>=0.5.3 (from yamllint==1.35.1)
+  Using cached pathspec-1.0.4-py3-none-any.whl.metadata (13 kB)
+Collecting pyyaml (from yamllint==1.35.1)
+  Using cached pyyaml-6.0.3-cp311-cp311-win_amd64.whl.metadata (2.4 kB)
+Using cached yamllint-1.35.1-py3-none-any.whl (66 kB)
+Using cached pathspec-1.0.4-py3-none-any.whl (55 kB)
+Using cached pyyaml-6.0.3-cp311-cp311-win_amd64.whl (158 kB)
+Installing collected packages: pyyaml, pathspec, yamllint
+
+Successfully installed pathspec-1.0.4 pyyaml-6.0.3 yamllint-1.35.1
+All required linters are available.
+
+Running ESLint...
+
+> @google/gemini-cli@0.30.0-nightly.20260210.a2174751d lint
+> eslint . --cache
+
+
+Running actionlint...
+
+Running shellcheck...
+Skipping shellcheck on Windows (commands unsupported).
+
+Running yamllint...
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\jinme\AppData\Local\Temp\gemini-cli-linters\python_venv\Scripts\yamllint.exe\__main__.py", line 5, in <module>
+  File "C:\Users\jinme\AppData\Local\Temp\gemini-cli-linters\python_venv\Lib\site-packages\yamllint\cli.py", line 223, in run
+    problems = linter.run(f, conf, filepath)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jinme\AppData\Local\Temp\gemini-cli-linters\python_venv\Lib\site-packages\yamllint\linter.py", line 232, in run
+    content = input.read()
+              ^^^^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xf0 in position 819: illegal multibyte sequence

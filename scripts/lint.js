@@ -127,14 +127,7 @@ const LINTERS = {
   actionlint: {
     check: actionlintCheck,
     installer: actionlintInstaller,
-    run: `
-      actionlint \
-        -color \
-        -ignore 'SC2002:' \
-        -ignore 'SC2016:' \
-        -ignore 'SC2129:' \
-        -ignore 'label ".+" is unknown'
-    `,
+    run: 'actionlint -color -ignore "SC2002:" -ignore "SC2016:" -ignore "SC2129:" -ignore "label \\".+\\" is unknown"',
   },
   shellcheck: {
     check: shellcheckCheck,
@@ -175,6 +168,8 @@ function runCommand(command, stdio = 'inherit') {
       pythonBin,
       env[pathKey],
     ].join(sep);
+    // Force Python to use UTF-8 instead of system default (e.g. cp949 on Korean Windows or windows-1252)
+    env['PYTHONUTF8'] = '1';
     execSync(command, { stdio, env, shell: true });
     return true;
   } catch (_e) {
@@ -220,6 +215,10 @@ export function runActionlint() {
 
 export function runShellcheck() {
   console.log('\nRunning shellcheck...');
+  if (isWindows) {
+    console.log('Skipping shellcheck on Windows (commands unsupported).');
+    return;
+  }
   if (!runCommand(LINTERS.shellcheck.run)) {
     process.exit(1);
   }
@@ -227,8 +226,24 @@ export function runShellcheck() {
 
 export function runYamllint() {
   console.log('\nRunning yamllint...');
-  if (!runCommand(LINTERS.yamllint.run)) {
-    process.exit(1);
+  if (isWindows) {
+    try {
+      const allFiles = execSync('git ls-files').toString().trim().split('\n');
+      const yamlFiles = allFiles.filter(
+        (f) => f.endsWith('.yaml') || f.endsWith('.yml'),
+      );
+      if (yamlFiles.length > 0) {
+        if (!runCommand(`yamllint --format github ${yamlFiles.join(' ')}`)) {
+          process.exit(1);
+        }
+      }
+    } catch (_e) {
+      process.exit(1);
+    }
+  } else {
+    if (!runCommand(LINTERS.yamllint.run)) {
+      process.exit(1);
+    }
   }
 }
 

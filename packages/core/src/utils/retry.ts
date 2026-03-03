@@ -38,6 +38,7 @@ export interface RetryOptions {
   signal?: AbortSignal;
   getAvailabilityContext?: () => RetryAvailabilityContext | undefined;
   onRetry?: (attempt: number, error: unknown, delayMs: number) => void;
+  parallelRetryCount?: number;
 }
 
 const DEFAULT_RETRY_OPTIONS: RetryOptions = {
@@ -147,6 +148,36 @@ export function isRetryableError(
 }
 
 /**
+ * Runs multiple copies of an async function slightly staggered in time, and races them.
+ * Resolves with the first successful result.
+ * If all fail, throws an AggregateError containing all errors.
+ */
+async function raceWithStagger<T>(
+  fn: () => Promise<T>,
+  count: number,
+  staggerMs: number,
+  signal?: AbortSignal,
+): Promise<T> {
+  const promises: Array<Promise<T>> = [];
+
+  for (let i = 0; i < count; i++) {
+    if (signal?.aborted) throw createAbortError();
+
+    const promise = (async () => {
+      if (i > 0) {
+        // Stagger subsequent requests
+        await delay(staggerMs, signal);
+      }
+      if (signal?.aborted) throw createAbortError();
+      return fn();
+    })();
+    promises.push(promise);
+  }
+
+  return Promise.any(promises);
+}
+
+/**
  * Retries a function with exponential backoff and jitter.
  * @param fn The asynchronous function to retry.
  * @param options Optional retry configuration.
@@ -182,6 +213,7 @@ export async function retryWithBackoff<T>(
     signal,
     getAvailabilityContext,
     onRetry,
+    parallelRetryCount,
   } = {
     ...DEFAULT_RETRY_OPTIONS,
     shouldRetryOnError: isRetryableError,
@@ -318,6 +350,34 @@ export async function retryWithBackoff<T>(
           }
           await delay(delayWithJitter, signal);
           currentDelay = Math.min(maxDelayMs, currentDelay * 2);
+
+          if (
+            parallelRetryCount &&
+            parallelRetryCount > 1 &&
+            attempt < maxAttempts
+          ) {
+            attempt++;
+            if (signal?.aborted) throw createAbortError();
+            try {
+              return await raceWithStagger(
+                fn,
+                parallelRetryCount,
+                1000,
+                signal,
+              );
+            } catch (staggerError: unknown) {
+              // If the staggered race also fails, we record it as one single attempt block
+              // and let the loop naturally continue handling the error (which was presumably the same 429 or others).
+              // We grab the first error from the AggregateError or use it directly.
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              const firstError =
+                staggerError instanceof AggregateError &&
+                staggerError.errors.length > 0
+                  ? staggerError.errors[0]
+                  : staggerError;
+              throw firstError;
+            }
+          }
           continue;
         } else {
           const errorStatus = getErrorStatus(error);

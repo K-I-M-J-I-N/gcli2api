@@ -321,6 +321,7 @@ export class BaseLlmClient {
         maxAttempts:
           availabilityMaxAttempts ?? maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
         getAvailabilityContext,
+        parallelRetryCount: 3,
         onPersistent429: this.config.isInteractive()
           ? (authType, error) =>
               handleFallback(this.config, currentModel, authType, error)

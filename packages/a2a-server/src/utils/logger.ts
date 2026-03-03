@@ -14,7 +14,7 @@ const logger = winston.createLogger({
       format: 'YYYY-MM-DD HH:mm:ss.SSS A', // Custom timestamp format
     }),
     // Here we define the custom output format
-    winston.format.printf((info) => {
+    winston.format.printf((info: winston.Logform.TransformableInfo) => {
       const { level, timestamp, message, ...rest } = info;
       return (
         `[${level.toUpperCase()}] ${timestamp} -- ${message}` +
