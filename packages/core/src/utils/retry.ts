@@ -358,6 +358,9 @@ export async function retryWithBackoff<T>(
           ) {
             attempt++;
             if (signal?.aborted) throw createAbortError();
+            debugLogger.warn(
+              `Triggering parallel retry with ${parallelRetryCount} concurrent requests (staggered 1000ms)...`,
+            );
             try {
               return await raceWithStagger(
                 fn,
