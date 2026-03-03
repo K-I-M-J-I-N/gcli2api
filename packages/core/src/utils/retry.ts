@@ -339,11 +339,9 @@ export async function retryWithBackoff<T>(
             : error;
         }
 
-        if (
-          classifiedError instanceof RetryableQuotaError &&
-          classifiedError.retryDelayMs !== undefined
-        ) {
-          currentDelay = Math.max(currentDelay, classifiedError.retryDelayMs);
+        if (classifiedError instanceof RetryableQuotaError) {
+          const designatedDelay = classifiedError.retryDelayMs ?? 10000; // Fallback 10s if backend doesn't provide delay
+          currentDelay = Math.max(currentDelay, designatedDelay);
           // Positive jitter up to +20% while respecting server minimum delay
           const jitter = currentDelay * 0.2 * Math.random();
           const delayWithJitter = currentDelay + jitter;
