@@ -18,7 +18,11 @@ import type {
 } from '@google/genai';
 import { toParts } from '../code_assist/converter.js';
 import { createUserContent, FinishReason } from '@google/genai';
-import { retryWithBackoff, isRetryableError } from '../utils/retry.js';
+import {
+  retryWithBackoff,
+  isRetryableError,
+  raceWithContinuousRetries,
+} from '../utils/retry.js';
 import type { ValidationRequiredError } from '../utils/googleQuotaErrors.js';
 import type { Config } from '../config/config.js';
 import {
@@ -407,7 +411,52 @@ export class GeminiChat {
               if (!isRetryable || signal.aborted) {
                 throw error;
               }
-              // Fall through to retry logic for retryable connection errors
+
+              // On retryable connection errors (e.g. 429 High Demand),
+              // fire 3 parallel requests with continuous per-lane retry.
+              const delayMs = INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs;
+              coreEvents.emitRetryAttempt({
+                attempt: attempt + 1,
+                maxAttempts,
+                delayMs,
+                error: error instanceof Error ? error.message : String(error),
+                model,
+              });
+              await new Promise((res) => setTimeout(res, delayMs));
+
+              coreEvents.emitRetryAttempt({
+                attempt: attempt + 1,
+                maxAttempts,
+                delayMs: 0,
+                error: error instanceof Error ? error.message : String(error),
+                model,
+                isParallel: true,
+              });
+
+              try {
+                const parallelStream = await raceWithContinuousRetries(
+                  () =>
+                    this.makeApiCallAndProcessStream(
+                      { ...modelConfigKey, isRetry: true },
+                      requestContents,
+                      prompt_id,
+                      signal,
+                      role,
+                    ),
+                  3,
+                  1000,
+                  signal,
+                );
+                isConnectionPhase = false;
+                for await (const chunk of parallelStream) {
+                  yield { type: StreamEventType.CHUNK, value: chunk };
+                }
+                lastError = null;
+                break;
+              } catch (parallelError) {
+                lastError = parallelError;
+                continue;
+              }
             }
             lastError = error;
             const isContentError = error instanceof InvalidStreamError;

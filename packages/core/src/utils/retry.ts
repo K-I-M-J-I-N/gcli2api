@@ -159,7 +159,7 @@ export function isRetryableError(
  * until the whole race wins or it hits a non-429 error.
  * If all lanes fail with non-429 errors, throws an AggregateError containing all errors.
  */
-async function raceWithContinuousRetries<T>(
+export async function raceWithContinuousRetries<T>(
   fn: () => Promise<T>,
   count: number,
   staggerMs: number,
