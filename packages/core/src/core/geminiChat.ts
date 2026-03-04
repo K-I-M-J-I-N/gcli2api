@@ -19,7 +19,6 @@ import {
   type GenerateContentParameters,
 } from '@google/genai';
 import { toParts } from '../code_assist/converter.js';
-import { createUserContent, FinishReason } from '@google/genai';
 import {
   retryWithBackoff,
   isRetryableError,
