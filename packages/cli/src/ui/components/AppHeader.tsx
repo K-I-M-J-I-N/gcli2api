@@ -96,6 +96,14 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
             {settings.merged.ui.showUserIdentity !== false && (
               <UserIdentity config={config} />
             )}
+
+            {/* not-my-gemini Features */}
+            <Box flexDirection="column" marginTop={1}>
+              <Text dimColor>not-my-gemini Added Features:</Text>
+              <Text dimColor>- Endless Parallel Retry for 429</Text>
+              <Text dimColor>- PowerShell 7 Fallback</Text>
+              <Text dimColor>- Multi-OAuth Credential Pooling</Text>
+            </Box>
           </Box>
         </Box>
       )}
