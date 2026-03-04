@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {
-  ClientMetadata,
-  GeminiUserTier,
-  IneligibleTier,
-  LoadCodeAssistResponse,
-  OnboardUserRequest,
+import {
+  UserTierId,
+  IneligibleTierReasonCode,
+  type ClientMetadata,
+  type GeminiUserTier,
+  type IneligibleTier,
+  type LoadCodeAssistResponse,
+  type OnboardUserRequest,
 } from './types.js';
-import { UserTierId, IneligibleTierReasonCode } from './types.js';
-import type { HttpOptions } from './server.js';
-import { CodeAssistServer } from './server.js';
+import { CodeAssistServer, type HttpOptions } from './server.js';
 import type { AuthClient } from 'google-auth-library';
 import type { ValidationHandler } from '../fallback/types.js';
 import { ChangeAuthRequestedError } from '../utils/errors.js';
@@ -52,6 +52,7 @@ export interface UserData {
   projectId: string;
   userTier: UserTierId;
   userTierName?: string;
+  paidTier?: GeminiUserTier;
 }
 
 /**
@@ -146,6 +147,7 @@ export async function setupUser(
             loadRes.currentTier.id ??
             UserTierId.STANDARD,
           userTierName: loadRes.paidTier?.name ?? loadRes.currentTier.name,
+          paidTier: loadRes.paidTier ?? undefined,
         };
       }
 
@@ -157,6 +159,7 @@ export async function setupUser(
       userTier:
         loadRes.paidTier?.id ?? loadRes.currentTier.id ?? UserTierId.STANDARD,
       userTierName: loadRes.paidTier?.name ?? loadRes.currentTier.name,
+      paidTier: loadRes.paidTier ?? undefined,
     };
   }
 

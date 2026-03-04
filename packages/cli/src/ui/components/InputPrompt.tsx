@@ -895,7 +895,9 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         completion.isPerfectMatch &&
         keyMatchers[Command.SUBMIT](key) &&
         recentUnsafePasteTime === null &&
-        (!completion.showSuggestions || completion.activeSuggestionIndex <= 0)
+        (!completion.showSuggestions ||
+          (completion.activeSuggestionIndex <= 0 &&
+            !hasUserNavigatedSuggestions.current))
       ) {
         handleSubmit(buffer.text);
         return true;
@@ -1425,7 +1427,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
   const borderColor =
     isShellFocused && !isEmbeddedShellFocused
-      ? (statusColor ?? theme.border.focused)
+      ? (statusColor ?? theme.ui.focus)
       : theme.border.default;
 
   return (

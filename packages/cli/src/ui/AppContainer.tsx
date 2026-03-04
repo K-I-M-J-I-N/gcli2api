@@ -47,6 +47,7 @@ import {
   type IdeInfo,
   type IdeContext,
   type UserTierId,
+  type GeminiUserTier,
   type UserFeedbackPayload,
   type AgentDefinition,
   type ApprovalMode,
@@ -82,6 +83,8 @@ import {
   CoreToolCallStatus,
   generateSteeringAckMessage,
   buildUserSteeringHintPrompt,
+  logBillingEvent,
+  ApiKeyUpdatedEvent,
 } from '@google/gemini-cli-core';
 import { validateAuthMethod } from '../config/auth.js';
 import process from 'node:process';
@@ -143,7 +146,6 @@ import { requestConsentInteractive } from '../config/extensions/consent.js';
 import { useSessionBrowser } from './hooks/useSessionBrowser.js';
 import { useSessionResume } from './hooks/useSessionResume.js';
 import { useIncludeDirsTrust } from './hooks/useIncludeDirsTrust.js';
-import { useSessionRetentionCheck } from './hooks/useSessionRetentionCheck.js';
 import { isWorkspaceTrusted } from '../config/trustedFolders.js';
 import { useSettings } from './contexts/SettingsContext.js';
 import { terminalCapabilityManager } from './utils/terminalCapabilityManager.js';
@@ -391,6 +393,9 @@ export const AppContainer = (props: AppContainerProps) => {
       ? { remaining, limit, resetTime }
       : undefined;
   });
+  const [paidTier, setPaidTier] = useState<GeminiUserTier | undefined>(
+    undefined,
+  );
 
   const [isConfigInitialized, setConfigInitialized] = useState(false);
 
@@ -669,7 +674,14 @@ export const AppContainer = (props: AppContainerProps) => {
     onAuthError,
     apiKeyDefaultValue,
     reloadApiKey,
-  } = useAuthCommand(settings, config, initializationResult.authError);
+    accountSuspensionInfo,
+    setAccountSuspensionInfo,
+  } = useAuthCommand(
+    settings,
+    config,
+    initializationResult.authError,
+    initializationResult.accountSuspensionInfo,
+  );
   const [authContext, setAuthContext] = useState<{ requiresRestart?: boolean }>(
     {},
   );
@@ -686,12 +698,20 @@ export const AppContainer = (props: AppContainerProps) => {
     handleProQuotaChoice,
     validationRequest,
     handleValidationChoice,
+    // G1 AI Credits
+    overageMenuRequest,
+    handleOverageMenuChoice,
+    emptyWalletRequest,
+    handleEmptyWalletChoice,
   } = useQuotaAndFallback({
     config,
     historyManager,
     userTier,
+    paidTier,
+    settings,
     setModelSwitchedFromQuotaError,
     onShowAuthSelection: () => setAuthState(AuthState.Updating),
+    errorVerbosity: settings.merged.ui.errorVerbosity,
   });
 
   // Derive auth state variables for backward compatibility with UIStateContext
@@ -729,6 +749,8 @@ export const AppContainer = (props: AppContainerProps) => {
   const handleAuthSelect = useCallback(
     async (authType: AuthType | undefined, scope: LoadableSettingScope) => {
       if (authType) {
+        const previousAuthType =
+          config.getContentGeneratorConfig()?.authType ?? 'unknown';
         if (authType === AuthType.LOGIN_WITH_GOOGLE) {
           setAuthContext({ requiresRestart: true });
         } else {
@@ -741,6 +763,10 @@ export const AppContainer = (props: AppContainerProps) => {
           config.setRemoteAdminSettings(undefined);
           await config.refreshAuth(authType);
           setAuthState(AuthState.Authenticated);
+          logBillingEvent(
+            config,
+            new ApiKeyUpdatedEvent(previousAuthType, authType),
+          );
         } catch (e) {
           if (e instanceof ChangeAuthRequestedError) {
             return;
@@ -803,6 +829,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     // Only sync when not currently authenticating
     if (authState === AuthState.Authenticated) {
       setUserTier(config.getUserTier());
+      setPaidTier(config.getUserPaidTier());
     }
   }, [config, authState]);
 
@@ -1520,28 +1547,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
 
   useIncludeDirsTrust(config, isTrustedFolder, historyManager, setCustomDialog);
 
-  const handleAutoEnableRetention = useCallback(() => {
-    const userSettings = settings.forScope(SettingScope.User).settings;
-    const currentRetention = userSettings.general?.sessionRetention ?? {};
-
-    settings.setValue(SettingScope.User, 'general.sessionRetention', {
-      ...currentRetention,
-      enabled: true,
-      maxAge: '30d',
-      warningAcknowledged: true,
-    });
-  }, [settings]);
-
-  const {
-    shouldShowWarning: shouldShowRetentionWarning,
-    checkComplete: retentionCheckComplete,
-    sessionsToDeleteCount,
-  } = useSessionRetentionCheck(
-    config,
-    settings.merged,
-    handleAutoEnableRetention,
-  );
-
   const tabFocusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -1661,6 +1666,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     retryStatus,
     loadingPhrasesMode: settings.merged.ui.loadingPhrases,
     customWittyPhrases: settings.merged.ui.customWittyPhrases,
+    errorVerbosity: settings.merged.ui.errorVerbosity,
   });
 
   const handleGlobalKeypress = useCallback(
@@ -1983,7 +1989,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
   const nightly = props.version.includes('nightly');
 
   const dialogsVisible =
-    (shouldShowRetentionWarning && retentionCheckComplete) ||
+    shouldShowIdePrompt ||
     shouldShowIdePrompt ||
     isFolderTrustDialogOpen ||
     isPolicyUpdateDialogOpen ||
@@ -2006,6 +2012,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
     showIdeRestartPrompt ||
     !!proQuotaRequest ||
     !!validationRequest ||
+    !!overageMenuRequest ||
+    !!emptyWalletRequest ||
     isSessionBrowserOpen ||
     authState === AuthState.AwaitingApiKeyInput ||
     !!newAgents;
@@ -2033,6 +2041,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
     hasLoopDetectionConfirmationRequest ||
     !!proQuotaRequest ||
     !!validationRequest ||
+    !!overageMenuRequest ||
+    !!emptyWalletRequest ||
     !!customDialog;
 
   const allowPlanMode =
@@ -2166,13 +2176,12 @@ Logging in with Google... Restarting Gemini CLI to continue.
       history: historyManager.history,
       historyManager,
       isThemeDialogOpen,
-      shouldShowRetentionWarning:
-        shouldShowRetentionWarning && retentionCheckComplete,
-      sessionsToDeleteCount: sessionsToDeleteCount ?? 0,
+
       themeError,
       isAuthenticating,
       isConfigInitialized,
       authError,
+      accountSuspensionInfo,
       isAuthDialogOpen,
       isAwaitingApiKeyInput: authState === AuthState.AwaitingApiKeyInput,
       apiKeyDefaultValue,
@@ -2243,6 +2252,9 @@ Logging in with Google... Restarting Gemini CLI to continue.
         stats: quotaStats,
         proQuotaRequest,
         validationRequest,
+        // G1 AI Credits dialog state
+        overageMenuRequest,
+        emptyWalletRequest,
       },
       contextFileNames,
       errorCount,
@@ -2294,13 +2306,12 @@ Logging in with Google... Restarting Gemini CLI to continue.
     }),
     [
       isThemeDialogOpen,
-      shouldShowRetentionWarning,
-      retentionCheckComplete,
-      sessionsToDeleteCount,
+
       themeError,
       isAuthenticating,
       isConfigInitialized,
       authError,
+      accountSuspensionInfo,
       isAuthDialogOpen,
       editorError,
       isEditorDialogOpen,
@@ -2367,6 +2378,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
       quotaStats,
       proQuotaRequest,
       validationRequest,
+      overageMenuRequest,
+      emptyWalletRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
@@ -2448,6 +2461,9 @@ Logging in with Google... Restarting Gemini CLI to continue.
       handleClearScreen,
       handleProQuotaChoice,
       handleValidationChoice,
+      // G1 AI Credits handlers
+      handleOverageMenuChoice,
+      handleEmptyWalletChoice,
       openSessionBrowser,
       closeSessionBrowser,
       handleResumeSession,
@@ -2505,6 +2521,10 @@ Logging in with Google... Restarting Gemini CLI to continue.
         setNewAgents(null);
       },
       getPreferredEditor,
+      clearAccountSuspension: () => {
+        setAccountSuspensionInfo(null);
+        setAuthState(AuthState.Updating);
+      },
     }),
     [
       handleThemeSelect,
@@ -2534,6 +2554,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
       handleClearScreen,
       handleProQuotaChoice,
       handleValidationChoice,
+      handleOverageMenuChoice,
+      handleEmptyWalletChoice,
       openSessionBrowser,
       closeSessionBrowser,
       handleResumeSession,
@@ -2553,6 +2575,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       setActiveBackgroundShellPid,
       setIsBackgroundShellListOpen,
       setAuthContext,
+      setAccountSuspensionInfo,
       newAgents,
       config,
       historyManager,
