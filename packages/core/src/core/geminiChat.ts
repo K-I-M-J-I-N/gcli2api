@@ -682,13 +682,15 @@ export class GeminiChat {
       signal: abortSignal,
       maxAttempts: availabilityMaxAttempts ?? this.config.getMaxAttempts(),
       getAvailabilityContext,
-      onRetry: (attempt, error, delayMs) => {
+      parallelRetryCount: 3,
+      onRetry: (attempt, error, delayMs, isParallel) => {
         coreEvents.emitRetryAttempt({
           attempt,
           maxAttempts: availabilityMaxAttempts ?? this.config.getMaxAttempts(),
           delayMs,
           error: error instanceof Error ? error.message : String(error),
           model: lastModelToUse,
+          isParallel,
         });
       },
     });
