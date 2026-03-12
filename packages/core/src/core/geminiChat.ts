@@ -418,12 +418,15 @@ export class GeminiChat {
 
               // On retryable connection errors (e.g. 429 High Demand),
               // fire 3 parallel requests with continuous per-lane retry.
-              const delayMs = INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs;
+              const delayMs = MID_STREAM_RETRY_OPTIONS.initialDelayMs;
               coreEvents.emitRetryAttempt({
                 attempt: attempt + 1,
                 maxAttempts,
                 delayMs,
-                error: error instanceof Error ? (error as Error).message : String(error),
+                error:
+                  error instanceof Error
+                    ? (error).message
+                    : String(error),
                 model,
               });
               await new Promise((res) => setTimeout(res, delayMs));
@@ -432,7 +435,10 @@ export class GeminiChat {
                 attempt: attempt + 1,
                 maxAttempts,
                 delayMs: 0,
-                error: error instanceof Error ? (error as Error).message : String(error),
+                error:
+                  error instanceof Error
+                    ? (error).message
+                    : String(error),
                 model,
                 isParallel: true,
               });
@@ -455,14 +461,12 @@ export class GeminiChat {
                 for await (const chunk of parallelStream) {
                   yield { type: StreamEventType.CHUNK, value: chunk };
                 }
-                lastError = null;
                 break;
-              } catch (parallelError) {
-                lastError = parallelError;
+              } catch (_parallelError) {
+                // If parallel retry fails, we just continue to the next attempt in the outer loop
                 continue;
               }
             }
-            lastError = error;
             const isContentError = error instanceof InvalidStreamError;
             const errorType = isContentError
               ? error.type
