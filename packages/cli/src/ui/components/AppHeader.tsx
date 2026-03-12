@@ -118,7 +118,7 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
               <Text dimColor>not-my-gemini Added Features:</Text>
               <Text dimColor>- Endless Parallel Retry for 429</Text>
               <Text dimColor>- PowerShell 7 Fallback</Text>
-              <Text dimColor>- Multi-OAuth Credential Pooling</Text>
+              <Text dimColor>- Local Workspace OAuth Storage</Text>
             </Box>
           </Box>
         </Box>

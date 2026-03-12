@@ -192,7 +192,7 @@ export class Storage {
   }
 
   static getOAuthCredsPath(): string {
-    return path.join(Storage.getGlobalGeminiDir(), OAUTH_FILE);
+    return path.join(process.cwd(), GEMINI_DIR, OAUTH_FILE);
   }
 
   getProjectRoot(): string {
