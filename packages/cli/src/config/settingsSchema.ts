@@ -188,6 +188,16 @@ const SETTINGS_SCHEMA = {
     description: 'General application settings.',
     showInDialog: false,
     properties: {
+      parallelRetryCount: {
+        type: 'number',
+        label: '[not-my-gemini] Parallel Retry Count',
+        category: 'General',
+        requiresRestart: false,
+        default: 3,
+        description:
+          'Number of parallel requests to send when encountering 429 High Demand errors (0 to disable).',
+        showInDialog: true,
+      },
       preferredEditor: {
         type: 'string',
         label: 'Preferred Editor',

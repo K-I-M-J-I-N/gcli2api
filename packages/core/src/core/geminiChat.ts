@@ -423,10 +423,7 @@ export class GeminiChat {
                 attempt: attempt + 1,
                 maxAttempts,
                 delayMs,
-                error:
-                  error instanceof Error
-                    ? (error).message
-                    : String(error),
+                error: error instanceof Error ? error.message : String(error),
                 model,
               });
               await new Promise((res) => setTimeout(res, delayMs));
@@ -435,10 +432,7 @@ export class GeminiChat {
                 attempt: attempt + 1,
                 maxAttempts,
                 delayMs: 0,
-                error:
-                  error instanceof Error
-                    ? (error).message
-                    : String(error),
+                error: error instanceof Error ? error.message : String(error),
                 model,
                 isParallel: true,
               });
@@ -710,7 +704,7 @@ export class GeminiChat {
       signal: abortSignal,
       maxAttempts: availabilityMaxAttempts ?? this.config.getMaxAttempts(),
       getAvailabilityContext,
-      parallelRetryCount: 3,
+      parallelRetryCount: this.config.getParallelRetryCount(),
       onRetry: (attempt, error, delayMs, isParallel) => {
         coreEvents.emitRetryAttempt({
           attempt,

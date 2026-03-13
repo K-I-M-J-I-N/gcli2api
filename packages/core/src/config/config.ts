@@ -592,6 +592,7 @@ export interface ConfigParameters {
   disableModelRouterForAuth?: AuthType[];
   continueOnFailedApiCall?: boolean;
   retryFetchErrors?: boolean;
+  parallelRetryCount?: number;
   maxAttempts?: number;
   enableShellOutputEfficiency?: boolean;
   shellToolInactivityTimeout?: number;
@@ -791,6 +792,7 @@ export class Config implements McpContext, AgentLoopContext {
 
   private readonly continueOnFailedApiCall: boolean;
   private readonly retryFetchErrors: boolean;
+  private readonly parallelRetryCount: number;
   private readonly maxAttempts: number;
   private readonly enableShellOutputEfficiency: boolean;
   private readonly shellToolInactivityTimeout: number;
@@ -1055,6 +1057,7 @@ export class Config implements McpContext, AgentLoopContext {
       },
     };
     this.retryFetchErrors = params.retryFetchErrors ?? true;
+    this.parallelRetryCount = params.parallelRetryCount ?? 3;
     this.maxAttempts = Math.min(
       params.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
       DEFAULT_MAX_ATTEMPTS,
@@ -2767,6 +2770,10 @@ export class Config implements McpContext, AgentLoopContext {
 
   getRetryFetchErrors(): boolean {
     return this.retryFetchErrors;
+  }
+
+  getParallelRetryCount(): number {
+    return this.parallelRetryCount;
   }
 
   getMaxAttempts(): number {
