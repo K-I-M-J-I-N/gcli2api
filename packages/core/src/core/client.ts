@@ -911,7 +911,6 @@ export class GeminiClient {
 
     const boundedTurns = Math.min(turns, MAX_TURNS);
     let turn = new Turn(this.getChat(), prompt_id);
-    let continuationHandled = false;
 
     try {
       turn = yield* this.processTurn(
@@ -969,11 +968,12 @@ export class GeminiClient {
           }
           const continueRequest = [{ text: continueReason }];
           // Reset hook state so the continuation fires BeforeAgent fresh
+          // and fireAfterAgentHookSafe sees activeCalls=1, not 2.
           const contHookState = this.hookStateMap.get(prompt_id);
           if (contHookState) {
             contHookState.hasFiredBeforeAgent = false;
+            contHookState.activeCalls--;
           }
-          continuationHandled = true;
           turn = yield* this.sendMessageStream(
             continueRequest,
             signal,
@@ -992,33 +992,27 @@ export class GeminiClient {
       }
       throw error;
     } finally {
-      if (!continuationHandled) {
-        const hookState = this.hookStateMap.get(prompt_id);
-        if (hookState) {
-          hookState.activeCalls--;
+      const hookState = this.hookStateMap.get(prompt_id);
+      if (hookState) {
+        hookState.activeCalls--;
 
-          if (hookState.activeCalls <= 0) {
-            this.hookStateMap.delete(prompt_id);
-            if (!signal?.aborted) {
-              const requestText = partToString(
-                hookState.originalRequest,
-              ).trim();
+        if (hookState.activeCalls <= 0) {
+          this.hookStateMap.delete(prompt_id);
+          if (!signal?.aborted) {
+            const requestText = partToString(hookState.originalRequest).trim();
 
-              // Skip notifications for system continuations or shell entry
-              const isInternal =
-                requestText === 'Please continue.' ||
-                requestText === 'System: Please continue.' ||
-                requestText.startsWith('/shell');
+            // Skip notifications for system continuations or shell entry
+            const isInternal =
+              requestText === 'Please continue.' ||
+              requestText === 'System: Please continue.' ||
+              requestText.startsWith('/shell');
 
-              if (!isInternal && requestText) {
-                const summary =
-                  requestText.length > 50
-                    ? `${requestText.substring(0, 50)}...`
-                    : requestText;
-                NotificationService.notifyTaskCompleted(
-                  `작업 완료: ${summary}`,
-                );
-              }
+            if (!isInternal && requestText) {
+              const summary =
+                requestText.length > 50
+                  ? `${requestText.substring(0, 50)}...`
+                  : requestText;
+              NotificationService.notifyTaskCompleted(`작업 완료: ${summary}`);
             }
           }
         }
@@ -1261,13 +1255,16 @@ export class GeminiClient {
     const feedback = [{ text: feedbackText }];
 
     // Recursive call with feedback
-    return this.sendMessageStream(
-      feedback,
-      signal,
-      prompt_id,
-      boundedTurns - 1,
-      isInvalidStreamRetry,
-      displayContent,
+    return (
+      yield *
+      this.sendMessageStream(
+        feedback,
+        signal,
+        prompt_id,
+        boundedTurns - 1,
+        isInvalidStreamRetry,
+        displayContent,
+      )
     );
   }
 }
