@@ -101,6 +101,20 @@ their corresponding top-level category object in your `settings.json` file.
 
 #### `general`
 
+- **`general.preferredLanguage`** (string):
+  - **Description:** The preferred natural language for the AI to respond in.
+  - **Default:** `undefined`
+
+- **`general.enableNotifications`** (boolean):
+  - **Description:** Enable notifications for action-required prompts and
+    session completion. Supported on Windows and macOS.
+  - **Default:** `true`
+
+- **`general.parallelRetryCount`** (number):
+  - **Description:** Number of parallel requests to send when encountering 429
+    High Demand errors (0 to disable).
+  - **Default:** `3`
+
 - **`general.preferredEditor`** (string):
   - **Description:** The preferred editor to open files in.
   - **Default:** `undefined`
@@ -128,11 +142,6 @@ their corresponding top-level category object in your `settings.json` file.
 - **`general.enableAutoUpdateNotification`** (boolean):
   - **Description:** Enable update notification prompts.
   - **Default:** `true`
-
-- **`general.enableNotifications`** (boolean):
-  - **Description:** Enable run-event notifications for action-required prompts
-    and session completion. Currently macOS only.
-  - **Default:** `false`
 
 - **`general.checkpointing.enabled`** (boolean):
   - **Description:** Enable session checkpointing for recovery
