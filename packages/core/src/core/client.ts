@@ -1230,7 +1230,7 @@ export class GeminiClient {
   /**
    * Handles loop recovery by providing feedback to the model and initiating a new turn.
    */
-  private _recoverFromLoop(
+  private async *_recoverFromLoop(
     loopResult: { detail?: string },
     signal: AbortSignal,
     prompt_id: string,
@@ -1255,16 +1255,13 @@ export class GeminiClient {
     const feedback = [{ text: feedbackText }];
 
     // Recursive call with feedback
-    return (
-      yield *
-      this.sendMessageStream(
-        feedback,
-        signal,
-        prompt_id,
-        boundedTurns - 1,
-        isInvalidStreamRetry,
-        displayContent,
-      )
+    return yield* this.sendMessageStream(
+      feedback,
+      signal,
+      prompt_id,
+      boundedTurns - 1,
+      isInvalidStreamRetry,
+      displayContent,
     );
   }
 }
