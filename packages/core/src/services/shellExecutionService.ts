@@ -1099,6 +1099,10 @@ export class ShellExecutionService {
     return ExecutionLifecycleService.isActive(pid);
   }
 
+  static getOutput(pid: number): string | undefined {
+    return ExecutionLifecycleService.getOutput(pid);
+  }
+
   /**
    * Registers a callback to be invoked when the process with the given PID exits.
    * This attaches directly to the PTY's exit event.

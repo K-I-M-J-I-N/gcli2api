@@ -343,6 +343,14 @@ export class ExecutionLifecycleService {
     this.activeResolvers.delete(executionId);
   }
 
+  static getOutput(executionId: number): string | undefined {
+    const execution = this.activeExecutions.get(executionId);
+    if (!execution) {
+      return undefined;
+    }
+    return execution.getBackgroundOutput?.() ?? execution.output;
+  }
+
   static subscribe(
     executionId: number,
     listener: (event: ExecutionOutputEvent) => void,

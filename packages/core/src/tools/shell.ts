@@ -168,7 +168,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
       .toString('hex')}.tmp`;
     const tempFilePath = path.join(os.tmpdir(), tempFileName);
 
-    const timeoutMs = this.config.getShellToolInactivityTimeout();
+    const inactivityTimeoutMs = this.config.getShellToolInactivityTimeout();
     const timeoutController = new AbortController();
     let timeoutTimer: NodeJS.Timeout | undefined;
 
@@ -206,15 +206,30 @@ export class ShellToolInvocation extends BaseToolInvocation<
       let cumulativeOutput: string | AnsiOutput = '';
       let lastUpdateTime = Date.now();
       let isBinaryStream = false;
+      // eslint-disable-next-line prefer-const
+      let executionPid: number | undefined;
+      let hangDetected = false;
+      const isInteractive = this.config.getEnableInteractiveShell();
 
       const resetTimeout = () => {
-        if (timeoutMs <= 0) {
-          return;
-        }
         if (timeoutTimer) clearTimeout(timeoutTimer);
-        timeoutTimer = setTimeout(() => {
-          timeoutController.abort();
-        }, timeoutMs);
+
+        if (
+          isInteractive &&
+          executionPid !== undefined &&
+          !this.params.is_background
+        ) {
+          // If interactive and we have a PID, use a short 3-second timeout for hang detection
+          timeoutTimer = setTimeout(() => {
+            hangDetected = true;
+            ShellExecutionService.background(executionPid!);
+          }, 3000);
+        } else if (inactivityTimeoutMs > 0) {
+          // Otherwise use the standard inactivity kill timeout (default 5 mins)
+          timeoutTimer = setTimeout(() => {
+            timeoutController.abort();
+          }, inactivityTimeoutMs);
+        }
       };
 
       signal.addEventListener('abort', onAbort, { once: true });
@@ -281,6 +296,12 @@ export class ShellToolInvocation extends BaseToolInvocation<
           },
         );
 
+      executionPid = pid;
+
+      // Call resetTimeout again now that executionPid is defined,
+      // so it can switch from the initial inactivity timeout to the hang detection timeout if needed.
+      resetTimeout();
+
       if (pid) {
         if (setExecutionIdCallback) {
           setExecutionIdCallback(pid);
@@ -332,7 +353,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
       if (result.aborted) {
         if (timeoutController.signal.aborted) {
           timeoutMessage = `Command was automatically cancelled because it exceeded the timeout of ${(
-            timeoutMs / 60000
+            inactivityTimeoutMs / 60000
           ).toFixed(1)} minutes without output.`;
           llmContent = timeoutMessage;
         } else {
@@ -345,7 +366,11 @@ export class ShellToolInvocation extends BaseToolInvocation<
           llmContent += ' There was no output before it was cancelled.';
         }
       } else if (this.params.is_background || result.backgrounded) {
-        llmContent = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
+        if (hangDetected) {
+          llmContent = `Command is paused and waiting for input (PID: ${result.pid}). Last output:\n${result.output || '(empty)'}\nUse 'write_to_shell' tool to provide input.`;
+        } else {
+          llmContent = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
+        }
         data = {
           pid: result.pid,
           command: this.params.command,
@@ -386,7 +411,11 @@ export class ShellToolInvocation extends BaseToolInvocation<
         returnDisplayMessage = llmContent;
       } else {
         if (this.params.is_background || result.backgrounded) {
-          returnDisplayMessage = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
+          if (hangDetected) {
+            returnDisplayMessage = `Command paused waiting for input (PID: ${result.pid}).`;
+          } else {
+            returnDisplayMessage = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
+          }
         } else if (result.aborted) {
           const cancelMsg = timeoutMessage || 'Command cancelled by user.';
           if (result.output.trim()) {

@@ -38,6 +38,7 @@ export interface CoreToolSet {
     enableInteractiveShell: boolean,
     enableEfficiency: boolean,
   ) => FunctionDeclaration;
+  write_to_shell: FunctionDeclaration;
   replace: FunctionDeclaration;
   google_web_search: FunctionDeclaration;
   web_fetch: FunctionDeclaration;

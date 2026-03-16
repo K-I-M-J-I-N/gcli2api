@@ -16,6 +16,9 @@ import {
   LS_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
+  WRITE_TO_SHELL_TOOL_NAME,
+  WRITE_TO_SHELL_PARAM_PID,
+  WRITE_TO_SHELL_PARAM_INPUT,
   EDIT_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_TODOS_TOOL_NAME,
@@ -340,6 +343,25 @@ export const GEMINI_3_SET: CoreToolSet = {
 
   run_shell_command: (enableInteractiveShell, enableEfficiency) =>
     getShellDeclaration(enableInteractiveShell, enableEfficiency),
+
+  write_to_shell: {
+    name: WRITE_TO_SHELL_TOOL_NAME,
+    description: `Send text input (like 'Y\\n' or passwords) to a backgrounded shell process (specified by PID) that is waiting for user input.`,
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        [WRITE_TO_SHELL_PARAM_PID]: {
+          type: 'integer',
+          description: `The PID of the backgrounded shell process.`,
+        },
+        [WRITE_TO_SHELL_PARAM_INPUT]: {
+          type: 'string',
+          description: `The text to send to the process. Don't forget to include '\\n' at the end if the prompt expects you to press Enter.`,
+        },
+      },
+      required: [WRITE_TO_SHELL_PARAM_PID, WRITE_TO_SHELL_PARAM_INPUT],
+    },
+  },
 
   replace: {
     name: EDIT_TOOL_NAME,
