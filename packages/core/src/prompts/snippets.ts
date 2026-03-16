@@ -53,6 +53,7 @@ export interface SystemPromptOptions {
 
 export interface PreambleOptions {
   interactive: boolean;
+  preferredLanguage?: string;
 }
 
 export interface CoreMandatesOptions {
@@ -160,9 +161,14 @@ ${renderUserMemory(userMemory, contextFilenames)}
 
 export function renderPreamble(options?: PreambleOptions): string {
   if (!options) return '';
-  return options.interactive
+  let preamble = options.interactive
     ? 'You are Gemini CLI, an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and effectively.'
     : 'You are Gemini CLI, an autonomous CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and effectively.';
+
+  if (options.preferredLanguage) {
+    preamble += `\nYou MUST communicate with the user in the following language: ${options.preferredLanguage}`;
+  }
+  return preamble;
 }
 
 export function renderCoreMandates(options?: CoreMandatesOptions): string {

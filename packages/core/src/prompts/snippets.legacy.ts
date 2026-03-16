@@ -40,6 +40,7 @@ export interface SystemPromptOptions {
 
 export interface PreambleOptions {
   interactive: boolean;
+  preferredLanguage?: string;
 }
 
 export interface CoreMandatesOptions {
@@ -144,9 +145,14 @@ ${renderUserMemory(userMemory)}
 
 export function renderPreamble(options?: PreambleOptions): string {
   if (!options) return '';
-  return options.interactive
+  let preamble = options.interactive
     ? 'You are an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.'
     : 'You are a non-interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.';
+
+  if (options.preferredLanguage) {
+    preamble += `\nYou MUST communicate with the user in the following language: ${options.preferredLanguage}`;
+  }
+  return preamble;
 }
 
 export function renderCoreMandates(options?: CoreMandatesOptions): string {

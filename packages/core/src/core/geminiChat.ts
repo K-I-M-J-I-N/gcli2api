@@ -709,7 +709,7 @@ export class GeminiChat {
       maxAttempts:
         availabilityMaxAttempts ?? this.context.config.getMaxAttempts(),
       getAvailabilityContext,
-      parallelRetryCount: this.config.getParallelRetryCount(),
+      parallelRetryCount: this.context.config.getParallelRetryCount(),
       onRetry: (attempt, error, delayMs, isParallel) => {
         coreEvents.emitRetryAttempt({
           attempt,

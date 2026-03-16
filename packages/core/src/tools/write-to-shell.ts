@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Config } from '../config/config.js';
 import {
   BaseDeclarativeTool,
   BaseToolInvocation,
@@ -13,16 +12,22 @@ import {
   type ToolResult,
 } from './tools.js';
 import { getErrorMessage } from '../utils/errors.js';
-import { WRITE_TO_SHELL_TOOL_NAME } from './tool-names.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
 import { getToolSet } from './definitions/coreTools.js';
 import { ShellExecutionService } from '../services/shellExecutionService.js';
-import stripAnsi from 'strip-ansi';
+import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 export interface WriteToShellParams {
   pid: number;
-  input: string;
+  input?: string;
+  control_sequence?:
+    | 'ctrl-c'
+    | 'ctrl-d'
+    | 'enter'
+    | 'escape'
+    | 'arrow-up'
+    | 'arrow-down';
 }
 
 export class WriteToShellInvocation extends BaseToolInvocation<
@@ -39,121 +44,77 @@ export class WriteToShellInvocation extends BaseToolInvocation<
   }
 
   getDescription(): string {
-    return `Writing input to shell process ${this.params.pid}`;
+    const { pid, input, control_sequence } = this.params;
+    let desc = `Sending to process ${pid}:`;
+    if (input) {
+      desc += ` input "${input.replace(/\n/g, '\\n')}"`;
+    }
+    if (control_sequence) {
+      desc += `${input ? ' and' : ''} control sequence ${control_sequence}`;
+    }
+    return desc;
   }
 
   async execute(
-    signal: AbortSignal,
-    updateOutput?: (output: unknown) => void,
+    _signal: AbortSignal,
+    _updateOutput?: (output: unknown) => void,
   ): Promise<ToolResult> {
-    if (signal.aborted) {
-      return {
-        llmContent: 'Action was cancelled by user.',
-        returnDisplay: 'Action cancelled.',
-      };
-    }
-
     try {
-      const pid = this.params.pid;
-      const input = this.params.input;
+      const { pid, input, control_sequence } = this.params;
 
-      if (!ShellExecutionService.isPtyActive(pid)) {
+      if (!input && !control_sequence) {
         return {
-          llmContent: `Error: Process ${pid} is not active or could not be found.`,
-          returnDisplay: `Process ${pid} is not active.`,
+          llmContent:
+            'Error: Either input or control_sequence must be provided.',
+          returnDisplay: 'Error: No input or control sequence provided.',
         };
       }
 
-      let cumulativeOutput = '';
-      let isBinaryStream = false;
-      let resolvePromise: (result: ToolResult) => void;
+      if (input) {
+        await ShellExecutionService.write(pid, input);
+      }
 
-      const promise = new Promise<ToolResult>((resolve) => {
-        resolvePromise = resolve;
-      });
-
-      // Use a short 3-second timeout for hang detection (waiting for more input)
-      const HANG_TIMEOUT_MS = 3000;
-      let timeoutTimer: NodeJS.Timeout | undefined;
-
-      const resetTimeout = () => {
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        timeoutTimer = setTimeout(() => {
-          // It's already in background, but we need to resolve our local promise
-          const currentOutput = ShellExecutionService.getOutput(pid);
-          resolvePromise({
-            llmContent: `Command is paused and waiting for input again (PID: ${pid}). Last output:\n${currentOutput ? stripAnsi(currentOutput) : '(empty)'}\nUse 'write_to_shell' tool to provide input.`,
-            returnDisplay: `Command paused waiting for input (PID: ${pid}).`,
-          });
-        }, HANG_TIMEOUT_MS);
-      };
-
-      const unsubscribe = ShellExecutionService.subscribe(pid, (event) => {
-        resetTimeout();
-        if (!updateOutput) return;
-
-        switch (event.type) {
-          case 'data':
-            if (isBinaryStream) break;
-            cumulativeOutput = event.chunk;
-            updateOutput(cumulativeOutput);
+      if (control_sequence) {
+        switch (control_sequence) {
+          case 'ctrl-c': {
+            await ShellExecutionService.sendControlSequence(pid, '\x03');
             break;
-          case 'binary_detected':
-          case 'binary_progress':
-            isBinaryStream = true;
-            updateOutput('[Binary output detected. Halting stream...]');
+          }
+          case 'ctrl-d': {
+            await ShellExecutionService.sendControlSequence(pid, '\x04');
             break;
-          case 'exit':
-            resolvePromise({
-              llmContent: `Process ${pid} exited.`,
-              returnDisplay: `Process ${pid} exited.`,
-            });
+          }
+          case 'enter': {
+            await ShellExecutionService.sendControlSequence(pid, '\r');
             break;
-          default:
+          }
+          case 'escape': {
+            await ShellExecutionService.sendControlSequence(pid, '\x1b');
             break;
+          }
+          case 'arrow-up': {
+            await ShellExecutionService.sendControlSequence(pid, '\x1b[A');
+            break;
+          }
+          case 'arrow-down': {
+            await ShellExecutionService.sendControlSequence(pid, '\x1b[B');
+            break;
+          }
+          default: {
+            // Should not happen due to validation
+            break;
+          }
         }
-      });
+      }
 
-      const unsubscribeExit = ShellExecutionService.onExit(
-        pid,
-        (exitCode, exitSignal) => {
-          if (timeoutTimer) clearTimeout(timeoutTimer);
-          resolvePromise({
-            llmContent: `Process ${pid} exited with code ${exitCode}${exitSignal ? ` (signal: ${exitSignal})` : ''}.`,
-            returnDisplay: `Process ${pid} exited with code ${exitCode}.`,
-          });
-        },
-      );
-
-      signal.addEventListener(
-        'abort',
-        () => {
-          if (timeoutTimer) clearTimeout(timeoutTimer);
-          resolvePromise({
-            llmContent: 'Action was cancelled by user.',
-            returnDisplay: 'Action cancelled.',
-          });
-        },
-        { once: true },
-      );
-
-      // Start observing
-      resetTimeout();
-
-      // Write to PTY
-      ShellExecutionService.writeToPty(pid, input);
-
-      const result = await promise;
-
-      unsubscribe();
-      unsubscribeExit();
-      if (timeoutTimer) clearTimeout(timeoutTimer);
-
-      return result;
+      return {
+        llmContent: `Successfully sent input/sequence to process ${pid}.`,
+        returnDisplay: `Sent to process ${pid}.`,
+      };
     } catch (e) {
       const errorMsg = getErrorMessage(e);
       return {
-        llmContent: `Failed to write to shell: ${errorMsg}`,
+        llmContent: `Error sending to process: ${errorMsg}`,
         returnDisplay: `Error: ${errorMsg}`,
       };
     }
@@ -164,13 +125,13 @@ export class WriteToShellTool extends BaseDeclarativeTool<
   WriteToShellParams,
   ToolResult
 > {
-  static readonly Name = WRITE_TO_SHELL_TOOL_NAME;
+  static readonly Name = 'write_to_shell';
 
   constructor(
-    private readonly config: Config,
+    private readonly context: AgentLoopContext,
     messageBus: MessageBus,
   ) {
-    const definition = getToolSet(config.getModel()).write_to_shell;
+    const definition = getToolSet(context.config.getModel()).write_to_shell;
     super(
       WriteToShellTool.Name,
       'Write to Shell',
@@ -179,18 +140,18 @@ export class WriteToShellTool extends BaseDeclarativeTool<
       definition.parametersJsonSchema,
       messageBus,
       false, // output is not markdown
-      true, // output can be updated
+      false, // output can not be updated
     );
   }
 
   protected override validateToolParamValues(
     params: WriteToShellParams,
   ): string | null {
-    if (params.pid === undefined || params.pid === null) {
+    if (!params.pid) {
       return 'PID is required.';
     }
-    if (typeof params.input !== 'string') {
-      return 'Input must be a string.';
+    if (!params.input && !params.control_sequence) {
+      return 'Either input or control_sequence must be provided.';
     }
     return null;
   }
@@ -210,7 +171,9 @@ export class WriteToShellTool extends BaseDeclarativeTool<
   }
 
   override getSchema(modelId?: string) {
-    const definition = getToolSet(this.config.getModel()).write_to_shell;
+    const definition = getToolSet(
+      this.context.config.getModel(),
+    ).write_to_shell;
     return resolveToolDeclaration({ base: definition }, modelId);
   }
 }

@@ -62,6 +62,13 @@ export const WRITE_TO_SHELL_TOOL_NAME = 'write_to_shell';
 export const WRITE_TO_SHELL_PARAM_PID = 'pid';
 export const WRITE_TO_SHELL_PARAM_INPUT = 'input';
 
+// -- list_background_processes --
+export const LIST_PROCESSES_TOOL_NAME = 'list_background_processes';
+
+// -- kill_process --
+export const KILL_PROCESS_TOOL_NAME = 'kill_process';
+export const KILL_PROCESS_PARAM_PID = 'pid';
+
 // -- write_file --
 export const WRITE_FILE_TOOL_NAME = 'write_file';
 export const WRITE_FILE_PARAM_CONTENT = 'content';

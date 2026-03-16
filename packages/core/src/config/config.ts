@@ -29,6 +29,10 @@ import { ActivateSkillTool } from '../tools/activate-skill.js';
 import { EditTool } from '../tools/edit.js';
 import { ShellTool } from '../tools/shell.js';
 import { WriteToShellTool } from '../tools/write-to-shell.js';
+import {
+  ListProcessesTool,
+  KillProcessTool,
+} from '../tools/manage-processes.js';
 import { WriteFileTool } from '../tools/write-file.js';
 import { WebFetchTool } from '../tools/web-fetch.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
@@ -602,6 +606,7 @@ export interface ConfigParameters {
   retryFetchErrors?: boolean;
   parallelRetryCount?: number;
   maxAttempts?: number;
+  preferredLanguage?: string;
   enableShellOutputEfficiency?: boolean;
   shellToolInactivityTimeout?: number;
   fakeResponses?: string;
@@ -806,6 +811,7 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly retryFetchErrors: boolean;
   private readonly parallelRetryCount: number;
   private readonly maxAttempts: number;
+  private readonly preferredLanguage?: string;
   private readonly enableShellOutputEfficiency: boolean;
   private readonly shellToolInactivityTimeout: number;
   readonly fakeResponses?: string;
@@ -1127,6 +1133,7 @@ export class Config implements McpContext, AgentLoopContext {
       params.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
       DEFAULT_MAX_ATTEMPTS,
     );
+    this.preferredLanguage = params.preferredLanguage;
     this.disableYoloMode = params.disableYoloMode ?? false;
     this.rawOutput = params.rawOutput ?? false;
     this.acceptRawOutputRisk = params.acceptRawOutputRisk ?? false;
@@ -2844,6 +2851,10 @@ export class Config implements McpContext, AgentLoopContext {
     return this.retryFetchErrors;
   }
 
+  getPreferredLanguage(): string | undefined {
+    return this.preferredLanguage;
+  }
+
   getParallelRetryCount(): number {
     return this.parallelRetryCount;
   }
@@ -3070,6 +3081,12 @@ export class Config implements McpContext, AgentLoopContext {
     );
     maybeRegister(WriteToShellTool, () =>
       registry.registerTool(new WriteToShellTool(this, this.messageBus)),
+    );
+    maybeRegister(ListProcessesTool, () =>
+      registry.registerTool(new ListProcessesTool(this, this.messageBus)),
+    );
+    maybeRegister(KillProcessTool, () =>
+      registry.registerTool(new KillProcessTool(this, this.messageBus)),
     );
     maybeRegister(MemoryTool, () =>
       registry.registerTool(new MemoryTool(this.messageBus)),

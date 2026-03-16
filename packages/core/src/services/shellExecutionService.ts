@@ -224,6 +224,44 @@ export class ShellExecutionService {
   private static backgroundLogPids = new Set<number>();
   private static backgroundLogStreams = new Map<number, fs.WriteStream>();
 
+  /**
+   * Returns a snapshot of all currently active background processes and PTYs.
+   */
+  static getActiveProcesses(): Array<{
+    pid: number;
+    command?: string;
+    backgrounded: boolean;
+  }> {
+    const processes: Array<{
+      pid: number;
+      command?: string;
+      backgrounded: boolean;
+    }> = [];
+
+    // Collect PTYs
+    for (const [pid, pty] of this.activePtys.entries()) {
+      processes.push({
+        pid,
+        command: pty.ptyProcess.process, // node-pty exposes the underlying process name, but often it's just 'bash' or 'powershell'
+        backgrounded: this.backgroundLogPids.has(pid),
+      });
+    }
+
+    // Collect standard child processes (though they might not be used interactively)
+    for (const [pid, child] of this.activeChildProcesses.entries()) {
+      // Avoid duplicating PTY pids if they somehow overlap (they shouldn't)
+      if (!processes.some((p) => p.pid === pid)) {
+        processes.push({
+          pid,
+          command: child.process.spawnfile,
+          backgrounded: this.backgroundLogPids.has(pid),
+        });
+      }
+    }
+
+    return processes;
+  }
+
   static getLogDir(): string {
     return path.join(Storage.getGlobalTempDir(), 'background-processes');
   }

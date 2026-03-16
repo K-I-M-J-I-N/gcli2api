@@ -19,6 +19,9 @@ import {
   WRITE_TO_SHELL_TOOL_NAME,
   WRITE_TO_SHELL_PARAM_PID,
   WRITE_TO_SHELL_PARAM_INPUT,
+  LIST_PROCESSES_TOOL_NAME,
+  KILL_PROCESS_TOOL_NAME,
+  KILL_PROCESS_PARAM_PID,
   EDIT_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_TODOS_TOOL_NAME,
@@ -358,8 +361,45 @@ export const GEMINI_3_SET: CoreToolSet = {
           type: 'string',
           description: `The text to send to the process. Don't forget to include '\\n' at the end if the prompt expects you to press Enter.`,
         },
+        control_sequence: {
+          type: 'string',
+          enum: [
+            'ctrl-c',
+            'ctrl-d',
+            'enter',
+            'escape',
+            'arrow-up',
+            'arrow-down',
+          ],
+          description: `Optional control sequence to send (e.g. to kill a stuck process or navigate a menu). Sent after the input string if both are provided.`,
+        },
       },
-      required: [WRITE_TO_SHELL_PARAM_PID, WRITE_TO_SHELL_PARAM_INPUT],
+      required: [WRITE_TO_SHELL_PARAM_PID],
+    },
+  },
+
+  list_background_processes: {
+    name: LIST_PROCESSES_TOOL_NAME,
+    description: `Returns a list of all currently active background processes and PTYs managed by the agent, including their PID and original command.`,
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+
+  kill_process: {
+    name: KILL_PROCESS_TOOL_NAME,
+    description: `Forcefully terminates a specific background process managed by the agent using its PID.`,
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        [KILL_PROCESS_PARAM_PID]: {
+          type: 'integer',
+          description: `The PID of the background process to terminate.`,
+        },
+      },
+      required: [KILL_PROCESS_PARAM_PID],
     },
   },
 

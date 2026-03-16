@@ -188,6 +188,15 @@ const SETTINGS_SCHEMA = {
     description: 'General application settings.',
     showInDialog: false,
     properties: {
+      preferredLanguage: {
+        type: 'string',
+        label: '[not-my-gemini] Preferred Language',
+        category: 'General',
+        requiresRestart: false,
+        default: undefined as string | undefined,
+        description: 'The preferred natural language for the AI to respond in.',
+        showInDialog: true,
+      },
       parallelRetryCount: {
         type: 'number',
         label: '[not-my-gemini] Parallel Retry Count',
@@ -325,7 +334,7 @@ const SETTINGS_SCHEMA = {
       },
       retryFetchErrors: {
         type: 'boolean',
-        label: 'Retry Fetch Errors',
+        label: '[not-my-gemini] Retry Fetch Errors',
         category: 'General',
         requiresRestart: false,
         default: true,

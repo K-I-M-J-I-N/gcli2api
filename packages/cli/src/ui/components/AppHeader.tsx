@@ -119,6 +119,7 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
               <Text dimColor>- Endless Parallel Retry for 429</Text>
               <Text dimColor>- PowerShell 7 Fallback</Text>
               <Text dimColor>- Local Workspace OAuth Storage</Text>
+              <Text dimColor>- AI-Driven Interactive Shell</Text>
             </Box>
           </Box>
         </Box>

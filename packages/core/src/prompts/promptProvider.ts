@@ -118,6 +118,7 @@ export class PromptProvider {
       const options: snippets.SystemPromptOptions = {
         preamble: this.withSection('preamble', () => ({
           interactive: interactiveMode,
+          preferredLanguage: context.config.getPreferredLanguage(),
         })),
         coreMandates: this.withSection('coreMandates', () => ({
           interactive: interactiveMode,

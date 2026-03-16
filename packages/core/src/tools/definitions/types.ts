@@ -39,6 +39,8 @@ export interface CoreToolSet {
     enableEfficiency: boolean,
   ) => FunctionDeclaration;
   write_to_shell: FunctionDeclaration;
+  list_background_processes: FunctionDeclaration;
+  kill_process: FunctionDeclaration;
   replace: FunctionDeclaration;
   google_web_search: FunctionDeclaration;
   web_fetch: FunctionDeclaration;

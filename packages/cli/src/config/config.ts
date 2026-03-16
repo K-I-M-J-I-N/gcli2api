@@ -842,6 +842,7 @@ export async function loadCliConfig(
     gemmaModelRouter: settings.experimental?.gemmaModelRouter,
     fakeResponses: argv.fakeResponses,
     recordResponses: argv.recordResponses,
+    preferredLanguage: settings.general?.preferredLanguage,
     retryFetchErrors: settings.general?.retryFetchErrors,
     parallelRetryCount: settings.general?.parallelRetryCount,
     billing: settings.billing,

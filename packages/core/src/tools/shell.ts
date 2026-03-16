@@ -41,6 +41,7 @@ import {
   hasRedirection,
 } from '../utils/shell-utils.js';
 import { SHELL_TOOL_NAME } from './tool-names.js';
+import stripAnsi from 'strip-ansi';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { getShellDefinition } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
@@ -168,7 +169,8 @@ export class ShellToolInvocation extends BaseToolInvocation<
       .toString('hex')}.tmp`;
     const tempFilePath = path.join(os.tmpdir(), tempFileName);
 
-    const inactivityTimeoutMs = this.context.config.getShellToolInactivityTimeout();
+    const inactivityTimeoutMs =
+      this.context.config.getShellToolInactivityTimeout();
     const timeoutController = new AbortController();
     let timeoutTimer: NodeJS.Timeout | undefined;
 
@@ -252,11 +254,39 @@ export class ShellToolInvocation extends BaseToolInvocation<
 
             let shouldUpdate = false;
 
+            const PROMPT_HEURISTIC_REGEX = /[:?>]\s*$/;
+
             switch (event.type) {
               case 'data':
                 if (isBinaryStream) break;
                 cumulativeOutput = event.chunk;
                 shouldUpdate = true;
+
+                // Prompt Heuristics: if we are in interactive mode, and the output seems like a prompt, yield faster
+                if (
+                  isInteractive &&
+                  executionPid !== undefined &&
+                  !this.params.is_background &&
+                  !hangDetected &&
+                  PROMPT_HEURISTIC_REGEX.test(
+                    stripAnsi(
+                      typeof cumulativeOutput === 'string'
+                        ? cumulativeOutput
+                        : cumulativeOutput
+                            .map((line) =>
+                              line.map((token) => token.text).join(''),
+                            )
+                            .join('\n'),
+                    ),
+                  )
+                ) {
+                  if (timeoutTimer) clearTimeout(timeoutTimer);
+                  hangDetected = true;
+                  // Allow a tiny delay for output to flush completely before backgrounding
+                  setTimeout(() => {
+                    ShellExecutionService.background(executionPid!);
+                  }, 50);
+                }
                 break;
               case 'binary_detected':
                 isBinaryStream = true;
