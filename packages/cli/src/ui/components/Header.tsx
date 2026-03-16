@@ -60,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
         <Text dimColor>- PowerShell 7 Fallback</Text>
         <Text dimColor>- Local Workspace OAuth Storage</Text>
         <Text dimColor>- AI-Driven Interactive Shell</Text>
+        <Text dimColor>- Windows Toast Notifications (Task/Input)</Text>
       </Box>
       {nightly && (
         <Box width="100%" flexDirection="row" justifyContent="flex-end">

@@ -71,7 +71,7 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
             <Box marginLeft={2} flexDirection="column">
               <Box>
                 <Text bold color={theme.text.primary}>
-                  Gemini CLI
+                  [not-my-gemini] Gemini CLI
                 </Text>
                 <Text color={theme.text.secondary}> v{version}</Text>
               </Box>
@@ -93,7 +93,7 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
             {/* Line 1: Gemini CLI vVersion [Updating] */}
             <Box>
               <Text bold color={theme.text.primary}>
-                Gemini CLI
+                [not-my-gemini] Gemini CLI
               </Text>
               <Text color={theme.text.secondary}> v{version}</Text>
               {updateInfo && (
@@ -120,6 +120,7 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
               <Text dimColor>- PowerShell 7 Fallback</Text>
               <Text dimColor>- Local Workspace OAuth Storage</Text>
               <Text dimColor>- AI-Driven Interactive Shell</Text>
+              <Text dimColor>- Windows Toast Notifications (Task/Input)</Text>
             </Box>
           </Box>
         </Box>
