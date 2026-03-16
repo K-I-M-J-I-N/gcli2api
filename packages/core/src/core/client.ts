@@ -969,11 +969,9 @@ export class GeminiClient {
           }
           const continueRequest = [{ text: continueReason }];
           // Reset hook state so the continuation fires BeforeAgent fresh
-          // and fireAfterAgentHookSafe sees activeCalls=1, not 2.
           const contHookState = this.hookStateMap.get(prompt_id);
           if (contHookState) {
             contHookState.hasFiredBeforeAgent = false;
-            contHookState.activeCalls--;
           }
           continuationHandled = true;
           turn = yield* this.sendMessageStream(
@@ -999,7 +997,7 @@ export class GeminiClient {
         if (hookState) {
           hookState.activeCalls--;
 
-          if (hookState.activeCalls <= 0 && !continuationHandled) {
+          if (hookState.activeCalls <= 0) {
             this.hookStateMap.delete(prompt_id);
             if (!signal?.aborted) {
               const requestText = partToString(
