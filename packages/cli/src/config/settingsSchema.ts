@@ -197,6 +197,16 @@ const SETTINGS_SCHEMA = {
         description: 'The preferred natural language for the AI to respond in.',
         showInDialog: true,
       },
+      enableNotifications: {
+        type: 'boolean',
+        label: '[not-my-gemini] Enable Notifications',
+        category: 'General',
+        requiresRestart: false,
+        default: true,
+        description:
+          'Enable notifications for action-required prompts and session completion. Supported on Windows and macOS.',
+        showInDialog: true,
+      },
       parallelRetryCount: {
         type: 'number',
         label: '[not-my-gemini] Parallel Retry Count',
@@ -270,16 +280,6 @@ const SETTINGS_SCHEMA = {
         default: true,
         description: 'Enable update notification prompts.',
         showInDialog: false,
-      },
-      enableNotifications: {
-        type: 'boolean',
-        label: 'Enable Notifications',
-        category: 'General',
-        requiresRestart: false,
-        default: false,
-        description:
-          'Enable run-event notifications for action-required prompts and session completion. Currently macOS only.',
-        showInDialog: true,
       },
       checkpointing: {
         type: 'object',

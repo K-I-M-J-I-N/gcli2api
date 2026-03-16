@@ -49,6 +49,26 @@
       "default": {},
       "type": "object",
       "properties": {
+        "preferredLanguage": {
+          "title": "[not-my-gemini] Preferred Language",
+          "description": "The preferred natural language for the AI to respond in.",
+          "markdownDescription": "The preferred natural language for the AI to respond in.\n\n- Category: `General`\n- Requires restart: `no`",
+          "type": "string"
+        },
+        "enableNotifications": {
+          "title": "[not-my-gemini] Enable Notifications",
+          "description": "Enable notifications for action-required prompts and session completion. Supported on Windows and macOS.",
+          "markdownDescription": "Enable notifications for action-required prompts and session completion. Supported on Windows and macOS.\n\n- Category: `General`\n- Requires restart: `no`\n- Default: `true`",
+          "default": true,
+          "type": "boolean"
+        },
+        "parallelRetryCount": {
+          "title": "[not-my-gemini] Parallel Retry Count",
+          "description": "Number of parallel requests to send when encountering 429 High Demand errors (0 to disable).",
+          "markdownDescription": "Number of parallel requests to send when encountering 429 High Demand errors (0 to disable).\n\n- Category: `General`\n- Requires restart: `no`\n- Default: `3`",
+          "default": 3,
+          "type": "number"
+        },
         "preferredEditor": {
           "title": "Preferred Editor",
           "description": "The preferred editor to open files in.",
@@ -89,13 +109,6 @@
           "description": "Enable update notification prompts.",
           "markdownDescription": "Enable update notification prompts.\n\n- Category: `General`\n- Requires restart: `no`\n- Default: `true`",
           "default": true,
-          "type": "boolean"
-        },
-        "enableNotifications": {
-          "title": "Enable Notifications",
-          "description": "Enable run-event notifications for action-required prompts and session completion. Currently macOS only.",
-          "markdownDescription": "Enable run-event notifications for action-required prompts and session completion. Currently macOS only.\n\n- Category: `General`\n- Requires restart: `no`\n- Default: `false`",
-          "default": false,
           "type": "boolean"
         },
         "checkpointing": {
@@ -139,7 +152,7 @@
           "additionalProperties": false
         },
         "retryFetchErrors": {
-          "title": "Retry Fetch Errors",
+          "title": "[not-my-gemini] Retry Fetch Errors",
           "description": "Retry on \"exception TypeError: fetch failed sending request\" errors.",
           "markdownDescription": "Retry on \"exception TypeError: fetch failed sending request\" errors.\n\n- Category: `General`\n- Requires restart: `no`\n- Default: `true`",
           "default": true,

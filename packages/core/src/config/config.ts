@@ -558,6 +558,7 @@ export interface ConfigParameters {
   fileDiscoveryService?: FileDiscoveryService;
   includeDirectories?: string[];
   bugCommand?: BugCommandSettings;
+  enableNotifications?: boolean;
   model: string;
   disableLoopDetection?: boolean;
   maxSessionTurns?: number;
@@ -598,6 +599,14 @@ export interface ConfigParameters {
   workspacePoliciesDir?: string;
   policyEngineConfig?: PolicyEngineConfig;
   directWebFetch?: boolean;
+  getModel?(): string;
+  getParallelRetryCount?(): number;
+  getMaxAttempts?(): number;
+  getRetryFetchErrors?(): boolean;
+  getEnableInteractiveShell?(): boolean;
+  getEnableShellOutputEfficiency?(): boolean;
+  isNotificationsEnabled?(): boolean;
+
   policyUpdateConfirmationRequest?: PolicyUpdateConfirmationRequest;
   output?: OutputSettings;
   gemmaModelRouter?: GemmaModelRouterSettings;
@@ -826,6 +835,7 @@ export class Config implements McpContext, AgentLoopContext {
   private readonly enableHooksUI: boolean;
   private readonly toolOutputMasking: ToolOutputMaskingConfig;
   private hooks: { [K in HookEventName]?: HookDefinition[] } | undefined;
+  private readonly enableNotifications: boolean;
   private projectHooks:
     | ({ [K in HookEventName]?: HookDefinition[] } & { disabled?: string[] })
     | undefined;
@@ -1137,6 +1147,7 @@ export class Config implements McpContext, AgentLoopContext {
     this.disableYoloMode = params.disableYoloMode ?? false;
     this.rawOutput = params.rawOutput ?? false;
     this.acceptRawOutputRisk = params.acceptRawOutputRisk ?? false;
+    this.enableNotifications = params.enableNotifications ?? true;
 
     if (params.hooks) {
       this.hooks = params.hooks;
@@ -2865,6 +2876,10 @@ export class Config implements McpContext, AgentLoopContext {
 
   getEnableShellOutputEfficiency(): boolean {
     return this.enableShellOutputEfficiency;
+  }
+
+  isNotificationsEnabled(): boolean {
+    return this.enableNotifications;
   }
 
   getShellToolInactivityTimeout(): number {

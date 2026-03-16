@@ -843,6 +843,7 @@ export async function loadCliConfig(
     fakeResponses: argv.fakeResponses,
     recordResponses: argv.recordResponses,
     preferredLanguage: settings.general?.preferredLanguage,
+    enableNotifications: settings.general?.enableNotifications,
     retryFetchErrors: settings.general?.retryFetchErrors,
     parallelRetryCount: settings.general?.parallelRetryCount,
     billing: settings.billing,
