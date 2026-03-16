@@ -248,7 +248,11 @@ function toPart(part: PartUnion): Part {
   // The CountToken API expects parts to have certain required "oneof" fields initialized,
   // but thought parts don't conform to this schema and cause API failures
   if ('thought' in part && part.thought) {
-    const thoughtText = `[Thought: ${part.thought}]`;
+    const thoughtValue =
+      typeof part.thought === 'boolean'
+        ? ((part as { text?: unknown }).text ?? '')
+        : part.thought;
+    const thoughtText = `[Thought: ${thoughtValue}]`;
 
     const newPart = { ...part };
     delete (newPart as Record<string, unknown>)['thought'];
