@@ -61,8 +61,8 @@ export class NotificationService {
     // Note: MessageBox is blocking, so we'd prefer a real toast,
     // but for simple "Task Completed" it's a very reliable fallback.
     // Let's use a non-blocking BurntToast style if possible, or just a simple balloon tip.
-    const balloonCommand = `powershell.exe -NoProfile -Command "$val = '[reflection.assembly]::loadwithpartialname(\\"System.Windows.Forms\\")'; [void](iex $val); $t = New-Object System.Windows.Forms.NotifyIcon; $t.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $PID).Path); $t.Visible = $true; $t.ShowBalloonTip(5000, '${escapedTitle}', '${escapedMessage}', [System.Windows.Forms.ToolTipIcon]::Info); Start-Sleep -s 5; $t.Dispose()"`;
-
+    // Windows Toast notification via PowerShell
+    const balloonCommand = `powershell.exe -NoProfile -Command "$val = '[reflection.assembly]::loadwithpartialname(\\"System.Windows.Forms\\")'; [void](iex $val); $t = New-Object System.Windows.Forms.NotifyIcon; $t.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $PID).Path); $t.Visible = $true; $t.ShowBalloonTip(5000, '${escapedTitle}', '${escapedMessage}', [System.Windows.Forms.ToolTipIcon]::None); Start-Sleep -s 5; $t.Dispose()"`;
     exec(balloonCommand, (error) => {
       if (error) {
         // Last resort: simple console beep or log
