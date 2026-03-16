@@ -26,10 +26,9 @@ export class NotificationService {
    */
   static notify(title: string, message: string): void {
     const enabled = this.config?.isNotificationsEnabled() ?? true;
-    if (!enabled || process.platform !== 'win32') {
+    if (!enabled || process.platform !== 'win32' || !message.trim()) {
       return;
     }
-
     // Try node-notifier first
     try {
       notifier.notify(

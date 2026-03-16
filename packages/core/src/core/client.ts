@@ -1005,11 +1005,22 @@ export class GeminiClient {
               const requestText = partToString(
                 hookState.originalRequest,
               ).trim();
-              const summary =
-                requestText.length > 50
-                  ? `${requestText.substring(0, 50)}...`
-                  : requestText;
-              NotificationService.notifyTaskCompleted(`작업 완료: ${summary}`);
+
+              // Skip notifications for system continuations or shell entry
+              const isInternal =
+                requestText === 'Please continue.' ||
+                requestText === 'System: Please continue.' ||
+                requestText.startsWith('/shell');
+
+              if (!isInternal && requestText) {
+                const summary =
+                  requestText.length > 50
+                    ? `${requestText.substring(0, 50)}...`
+                    : requestText;
+                NotificationService.notifyTaskCompleted(
+                  `작업 완료: ${summary}`,
+                );
+              }
             }
           }
         }
