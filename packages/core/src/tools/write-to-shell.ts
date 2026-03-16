@@ -112,7 +112,7 @@ export class WriteToShellInvocation extends BaseToolInvocation<
 
       return {
         llmContent: `Successfully sent input/sequence to process ${pid}.`,
-        returnDisplay: `Sent to process ${pid}.`,
+        returnDisplay: '', // Silent output to prevent UI corruption
       };
     } catch (e) {
       const errorMsg = getErrorMessage(e);
