@@ -459,4 +459,16 @@ export class ExecutionLifecycleService {
       execution.writeInput?.(input);
     }
   }
+
+  static getAllActiveExecutions(): Array<{
+    pid: number;
+    executionMethod: ExecutionMethod;
+    kind: 'virtual' | 'external';
+  }> {
+    return Array.from(this.activeExecutions.entries()).map(([pid, state]) => ({
+      pid,
+      executionMethod: state.executionMethod,
+      kind: state.kind,
+    }));
+  }
 }

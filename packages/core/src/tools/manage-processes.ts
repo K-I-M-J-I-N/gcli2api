@@ -10,12 +10,14 @@ import {
   Kind,
   type ToolInvocation,
   type ToolResult,
+  type ToolLiveOutput,
 } from './tools.js';
 import { getErrorMessage } from '../utils/errors.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
 import { getToolSet } from './definitions/coreTools.js';
-import { ShellExecutionService } from '../services/shellExecutionService.js';
+import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
+import { type ShellExecutionConfig } from '../services/shellExecutionService.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 // ---- list_background_processes ----
@@ -41,10 +43,11 @@ export class ListProcessesInvocation extends BaseToolInvocation<
 
   async execute(
     _signal: AbortSignal,
-    _updateOutput?: (output: unknown) => void,
+    _updateOutput?: (output: ToolLiveOutput) => void,
+    _shellExecutionConfig?: ShellExecutionConfig,
   ): Promise<ToolResult> {
     try {
-      const processes = ShellExecutionService.getActiveProcesses();
+      const processes = ExecutionLifecycleService.getAllActiveExecutions();
 
       if (processes.length === 0) {
         return {
@@ -56,7 +59,7 @@ export class ListProcessesInvocation extends BaseToolInvocation<
       const listStr = processes
         .map(
           (p) =>
-            `- PID: ${p.pid}, Command: ${p.command || 'unknown'}, Backgrounded: ${p.backgrounded}`,
+            `- PID: ${p.pid}, Method: ${p.executionMethod}, Kind: ${p.kind}`,
         )
         .join('\n');
 
@@ -152,20 +155,20 @@ export class KillProcessInvocation extends BaseToolInvocation<
 
   async execute(
     _signal: AbortSignal,
-    _updateOutput?: (output: unknown) => void,
+    _updateOutput?: (output: ToolLiveOutput) => void,
+    _shellExecutionConfig?: ShellExecutionConfig,
   ): Promise<ToolResult> {
     try {
       const pid = this.params.pid;
-      const processes = ShellExecutionService.getActiveProcesses();
 
-      if (!processes.some((p) => p.pid === pid)) {
+      if (!ExecutionLifecycleService.isActive(pid)) {
         return {
           llmContent: `Error: Process ${pid} is not active or could not be found among managed processes.`,
           returnDisplay: `Process ${pid} not found.`,
         };
       }
 
-      await ShellExecutionService.kill(pid);
+      ExecutionLifecycleService.kill(pid);
 
       return {
         llmContent: `Successfully killed process ${pid}.`,

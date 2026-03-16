@@ -10,12 +10,14 @@ import {
   Kind,
   type ToolInvocation,
   type ToolResult,
+  type ToolLiveOutput,
 } from './tools.js';
 import { getErrorMessage } from '../utils/errors.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
 import { getToolSet } from './definitions/coreTools.js';
-import { ShellExecutionService } from '../services/shellExecutionService.js';
+import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
+import { type ShellExecutionConfig } from '../services/shellExecutionService.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 export interface WriteToShellParams {
@@ -57,7 +59,8 @@ export class WriteToShellInvocation extends BaseToolInvocation<
 
   async execute(
     _signal: AbortSignal,
-    _updateOutput?: (output: unknown) => void,
+    _updateOutput?: (output: ToolLiveOutput) => void,
+    _shellExecutionConfig?: ShellExecutionConfig,
   ): Promise<ToolResult> {
     try {
       const { pid, input, control_sequence } = this.params;
@@ -71,33 +74,33 @@ export class WriteToShellInvocation extends BaseToolInvocation<
       }
 
       if (input) {
-        await ShellExecutionService.write(pid, input);
+        ExecutionLifecycleService.writeInput(pid, input);
       }
 
       if (control_sequence) {
         switch (control_sequence) {
           case 'ctrl-c': {
-            await ShellExecutionService.sendControlSequence(pid, '\x03');
+            ExecutionLifecycleService.writeInput(pid, '\x03');
             break;
           }
           case 'ctrl-d': {
-            await ShellExecutionService.sendControlSequence(pid, '\x04');
+            ExecutionLifecycleService.writeInput(pid, '\x04');
             break;
           }
           case 'enter': {
-            await ShellExecutionService.sendControlSequence(pid, '\r');
+            ExecutionLifecycleService.writeInput(pid, '\r');
             break;
           }
           case 'escape': {
-            await ShellExecutionService.sendControlSequence(pid, '\x1b');
+            ExecutionLifecycleService.writeInput(pid, '\x1b');
             break;
           }
           case 'arrow-up': {
-            await ShellExecutionService.sendControlSequence(pid, '\x1b[A');
+            ExecutionLifecycleService.writeInput(pid, '\x1b[A');
             break;
           }
           case 'arrow-down': {
-            await ShellExecutionService.sendControlSequence(pid, '\x1b[B');
+            ExecutionLifecycleService.writeInput(pid, '\x1b[B');
             break;
           }
           default: {
