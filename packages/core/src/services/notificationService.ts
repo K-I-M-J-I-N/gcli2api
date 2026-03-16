@@ -70,8 +70,8 @@ export class NotificationService {
     });
   }
 
-  static notifyInputRequired(): void {
-    this.notify('Gemini CLI', '사용자 입력이 필요합니다!');
+  static notifyInputRequired(message?: string): void {
+    this.notify('Gemini CLI', message || '사용자 입력이 필요합니다!');
   }
 
   static notifyTaskCompleted(message?: string): void {

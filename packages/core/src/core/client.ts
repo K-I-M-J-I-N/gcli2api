@@ -962,15 +962,23 @@ export class GeminiClient {
               contextCleared,
             },
           };
+
+          // Notify user that action is required
+          NotificationService.notifyInputRequired(
+            `승인 대기 중: ${continueReason}`,
+          );
+
           // Clear context if requested
           if (contextCleared) {
             await this.resetChat();
           }
           const continueRequest = [{ text: continueReason }];
           // Reset hook state so the continuation fires BeforeAgent fresh
+          // and fireAfterAgentHookSafe sees activeCalls=1, not 2.
           const contHookState = this.hookStateMap.get(prompt_id);
           if (contHookState) {
             contHookState.hasFiredBeforeAgent = false;
+            contHookState.activeCalls--;
           }
           turn = yield* this.sendMessageStream(
             continueRequest,
