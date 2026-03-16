@@ -44,6 +44,7 @@ import type {
 import type { ContentGenerator } from './contentGenerator.js';
 import { LoopDetectionService } from '../services/loopDetectionService.js';
 import { ChatCompressionService } from '../services/chatCompressionService.js';
+import { NotificationService } from '../services/notificationService.js';
 import { ideContextStore } from '../ide/ideContext.js';
 import {
   logContentRetryFailure,
@@ -997,13 +998,18 @@ export class GeminiClient {
         const hookState = this.hookStateMap.get(prompt_id);
         if (hookState) {
           hookState.activeCalls--;
-          const isPendingTools =
-            turn?.pendingToolCalls && turn.pendingToolCalls.length > 0;
-          const isAborted = signal?.aborted;
 
-          if (hookState.activeCalls <= 0) {
-            if (!isPendingTools || isAborted) {
-              this.hookStateMap.delete(prompt_id);
+          if (hookState.activeCalls <= 0 && !continuationHandled) {
+            this.hookStateMap.delete(prompt_id);
+            if (!signal?.aborted) {
+              const requestText = partToString(
+                hookState.originalRequest,
+              ).trim();
+              const summary =
+                requestText.length > 50
+                  ? `${requestText.substring(0, 50)}...`
+                  : requestText;
+              NotificationService.notifyTaskCompleted(`작업 완료: ${summary}`);
             }
           }
         }
