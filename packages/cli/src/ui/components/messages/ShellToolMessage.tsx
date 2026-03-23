@@ -28,6 +28,7 @@ import {
   type Config,
   ShellExecutionService,
   CoreToolCallStatus,
+  type AnsiOutput,
 } from '@google/gemini-cli-core';
 import {
   calculateShellMaxLines,
@@ -77,6 +78,31 @@ export const ShellToolMessage: React.FC<ShellToolMessageProps> = ({
     constrainHeight,
   } = useUIState();
   const isAlternateBuffer = useAlternateBuffer();
+
+  const [liveOutput, setLiveOutput] = React.useState<
+    string | object | undefined
+  >(resultDisplay);
+
+  React.useEffect(() => {
+    if (!ptyId) return;
+
+    // Subscribe to live updates for this shell, even if it's in the background
+    const unsubscribe = ShellExecutionService.subscribe(ptyId, (event) => {
+      if (event.type === 'data') {
+        if (typeof event.chunk === 'string') {
+          const chunkStr = event.chunk;
+          setLiveOutput((prev: string | AnsiOutput | undefined) => {
+            if (typeof prev === 'string') return prev + chunkStr;
+            return chunkStr;
+          });
+        } else {
+          setLiveOutput(event.chunk);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [ptyId]);
 
   const isThisShellFocused = checkIsShellFocused(
     name,
@@ -210,7 +236,7 @@ export const ShellToolMessage: React.FC<ShellToolMessageProps> = ({
         flexDirection="column"
       >
         <ToolResultDisplay
-          resultDisplay={resultDisplay}
+          resultDisplay={liveOutput || resultDisplay}
           availableTerminalHeight={availableTerminalHeight}
           terminalWidth={terminalWidth}
           renderOutputAsMarkdown={renderOutputAsMarkdown}

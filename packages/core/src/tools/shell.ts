@@ -41,7 +41,6 @@ import {
   hasRedirection,
 } from '../utils/shell-utils.js';
 import { SHELL_TOOL_NAME } from './tool-names.js';
-import stripAnsi from 'strip-ansi';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { getShellDefinition } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
@@ -221,11 +220,13 @@ export class ShellToolInvocation extends BaseToolInvocation<
           executionPid !== undefined &&
           !this.params.is_background
         ) {
-          // If interactive and we have a PID, use a short 3-second timeout for hang detection
+          // Use a 30-second timeout for hang detection. This allows long-running
+          // silent commands like 'sleep 20' to finish, while still allowing
+          // the AI to take over if a command is truly stuck waiting for input.
           timeoutTimer = setTimeout(() => {
             hangDetected = true;
             ShellExecutionService.background(executionPid!);
-          }, 3000);
+          }, 30000);
         } else if (inactivityTimeoutMs > 0) {
           // Otherwise use the standard inactivity kill timeout (default 5 mins)
           timeoutTimer = setTimeout(() => {
@@ -262,30 +263,21 @@ export class ShellToolInvocation extends BaseToolInvocation<
                 cumulativeOutput = event.chunk;
                 shouldUpdate = true;
 
-                // Prompt Heuristics: if we are in interactive mode, and the output seems like a prompt, yield faster
+                // Prompt Heuristics: if we are in interactive mode, and the output seems like a prompt, yield control back to the model.
+                // We use a 500ms delay to ensure the output is fully flushed and it's not just a slow stream.
                 if (
                   isInteractive &&
                   executionPid !== undefined &&
                   !this.params.is_background &&
                   !hangDetected &&
-                  PROMPT_HEURISTIC_REGEX.test(
-                    stripAnsi(
-                      typeof cumulativeOutput === 'string'
-                        ? cumulativeOutput
-                        : cumulativeOutput
-                            .map((line) =>
-                              line.map((token) => token.text).join(''),
-                            )
-                            .join('\n'),
-                    ),
-                  )
+                  typeof cumulativeOutput === 'string' &&
+                  PROMPT_HEURISTIC_REGEX.test(cumulativeOutput)
                 ) {
                   if (timeoutTimer) clearTimeout(timeoutTimer);
                   hangDetected = true;
-                  // Allow a tiny delay for output to flush completely before backgrounding
                   setTimeout(() => {
                     ShellExecutionService.background(executionPid!);
-                  }, 50);
+                  }, 500);
                 }
                 break;
               case 'binary_detected':
@@ -398,7 +390,15 @@ export class ShellToolInvocation extends BaseToolInvocation<
         }
       } else if (this.params.is_background || result.backgrounded) {
         if (hangDetected) {
-          llmContent = `Command is paused and waiting for input (PID: ${result.pid}). Last output:\n${result.output || '(empty)'}\nUse 'write_to_shell' tool to provide input.`;
+          llmContent = `Command is still active in background but seems to be waiting for input or a long-running operation (PID: ${result.pid}).
+Last output:
+${result.output || '(empty)'}
+
+INSTRUCTIONS FOR AI: 
+1. Analyze the output above. 
+2. If it's a prompt (e.g., password, yes/no), use 'write_to_shell' to provide input.
+3. If it's just taking a long time (e.g., sleep, slow build), you can choose to 'wait' or do other tasks.
+4. DO NOT assume the command has finished unless you see an exit code or clear completion message.`;
         } else {
           llmContent = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
         }
@@ -443,7 +443,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
       } else {
         if (this.params.is_background || result.backgrounded) {
           if (hangDetected) {
-            returnDisplayMessage = `Command paused waiting for input (PID: ${result.pid}).`;
+            returnDisplayMessage = `Command active in background (waiting for input? PID: ${result.pid}).`;
           } else {
             returnDisplayMessage = `Command moved to background (PID: ${result.pid}). Output hidden. Press Ctrl+B to view.`;
           }

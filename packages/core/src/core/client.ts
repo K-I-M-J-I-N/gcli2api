@@ -580,6 +580,7 @@ export class GeminiClient {
     boundedTurns: number,
     isInvalidStreamRetry: boolean,
     displayContent?: PartListUnion,
+    depth: number = 0,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
     // Re-initialize turn (it was empty before if in loop, or new instance)
     let turn = new Turn(this.getChat(), prompt_id);
@@ -815,6 +816,8 @@ export class GeminiClient {
           boundedTurns - 1,
           true,
           displayContent,
+          false,
+          depth + 1,
         );
         return turn;
       }
@@ -848,6 +851,8 @@ export class GeminiClient {
             boundedTurns - 1,
             false, // isInvalidStreamRetry is false
             displayContent,
+            false,
+            depth + 1,
           );
           return turn;
         }
@@ -864,6 +869,7 @@ export class GeminiClient {
     isInvalidStreamRetry: boolean = false,
     displayContent?: PartListUnion,
     stopHookActive: boolean = false,
+    depth: number = 0,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
     if (!isInvalidStreamRetry) {
       this.config.resetTurn();
@@ -920,6 +926,7 @@ export class GeminiClient {
         boundedTurns,
         isInvalidStreamRetry,
         displayContent,
+        depth,
       );
 
       // Fire AfterAgent hook if we have a turn and no pending tools
@@ -974,11 +981,9 @@ export class GeminiClient {
           }
           const continueRequest = [{ text: continueReason }];
           // Reset hook state so the continuation fires BeforeAgent fresh
-          // and fireAfterAgentHookSafe sees activeCalls=1, not 2.
           const contHookState = this.hookStateMap.get(prompt_id);
           if (contHookState) {
             contHookState.hasFiredBeforeAgent = false;
-            contHookState.activeCalls--;
           }
           turn = yield* this.sendMessageStream(
             continueRequest,
@@ -988,6 +993,7 @@ export class GeminiClient {
             false,
             displayContent,
             true, // stopHookActive: signal retry to AfterAgent hooks
+            depth + 1,
           );
         }
       }
@@ -1002,7 +1008,7 @@ export class GeminiClient {
       if (hookState) {
         hookState.activeCalls--;
 
-        if (hookState.activeCalls <= 0) {
+        if (depth === 0) {
           this.hookStateMap.delete(prompt_id);
           if (!signal?.aborted) {
             const requestText = partToString(hookState.originalRequest).trim();
@@ -1244,6 +1250,7 @@ export class GeminiClient {
     isInvalidStreamRetry: boolean,
     displayContent?: PartListUnion,
     controllerToAbort?: AbortController,
+    depth: number = 0,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
     controllerToAbort?.abort();
 
@@ -1268,6 +1275,8 @@ export class GeminiClient {
       boundedTurns - 1,
       isInvalidStreamRetry,
       displayContent,
+      false,
+      depth + 1,
     );
   }
 }
