@@ -121,6 +121,7 @@ export const AppHeader = ({ version, showDetails = true }: AppHeaderProps) => {
               <Text dimColor>- Local Workspace OAuth Storage</Text>
               <Text dimColor>- AI-Driven Interactive Shell</Text>
               <Text dimColor>- Windows Toast Notifications (Task/Input)</Text>
+              <Text dimColor>- Real-time Live Terminal</Text>
             </Box>
           </Box>
         </Box>

@@ -61,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
         <Text dimColor>- Local Workspace OAuth Storage</Text>
         <Text dimColor>- AI-Driven Interactive Shell</Text>
         <Text dimColor>- Windows Toast Notifications (Task/Input)</Text>
+        <Text dimColor>- Real-time Live Terminal</Text>
       </Box>
       {nightly && (
         <Box width="100%" flexDirection="row" justifyContent="flex-end">
