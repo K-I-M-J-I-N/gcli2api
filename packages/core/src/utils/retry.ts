@@ -197,14 +197,15 @@ export function isRetryableError(
 /**
  * Runs multiple copies of an async function slightly staggered in time, and races them.
  * Resolves with the first successful result.
- * If any lane encounters a RetryableQuotaError, it will wait 1 second and retry itself indefinitely
- * until the whole race wins or it hits a non-429 error.
- * If all lanes fail with non-429 errors, throws an AggregateError containing all errors.
+ * If any lane encounters a RetryableQuotaError, it will wait 1 second and retry itself
+ * up to maxRetriesPerLane times until the whole race wins or it hits a non-429 error.
+ * If all lanes fail with non-429 errors or exhaust their retries, throws an AggregateError containing all errors.
  */
 export async function raceWithContinuousRetries<T>(
   fn: () => Promise<T>,
   count: number,
   staggerMs: number,
+  maxRetriesPerLane: number,
   signal?: AbortSignal,
 ): Promise<T> {
   const promises: Array<Promise<T>> = [];
@@ -216,14 +217,19 @@ export async function raceWithContinuousRetries<T>(
         await delay(i * staggerMs, signal);
       }
 
-      while (true) {
+      let laneAttempt = 0;
+      while (laneAttempt < maxRetriesPerLane) {
         if (signal?.aborted) throw createAbortError();
+        laneAttempt++;
         try {
           return await fn();
         } catch (error) {
           if (signal?.aborted) throw createAbortError();
           const classifiedError = classifyGoogleError(error);
-          if (classifiedError instanceof RetryableQuotaError) {
+          if (
+            classifiedError instanceof RetryableQuotaError &&
+            laneAttempt < maxRetriesPerLane
+          ) {
             // Unconditional 1s delay per lane on 429 High Demand
             await delay(1000, signal);
             continue;
@@ -231,6 +237,7 @@ export async function raceWithContinuousRetries<T>(
           throw error;
         }
       }
+      throw new Error(`Lane exhausted ${maxRetriesPerLane} retries`);
     })();
     promises.push(promise);
   }
@@ -422,8 +429,6 @@ export async function retryWithBackoff<T>(
           await delay(delayWithJitter, signal);
 
           if (isParallelRetryActive) {
-            currentDelay = Math.min(maxDelayMs, currentDelay * 2);
-            attempt++;
             if (signal?.aborted) throw createAbortError();
             debugLogger.warn(
               `Triggering continuous parallel retry with ${parallelRetryCount} concurrent requests...`,
@@ -432,25 +437,32 @@ export async function retryWithBackoff<T>(
               onRetry(attempt, error, 0, true);
             }
             try {
+              // We try at most (maxAttempts - attempt) more times per lane
+              const maxRetriesPerLane = Math.max(1, maxAttempts - attempt);
               return await raceWithContinuousRetries(
                 fn,
                 parallelRetryCount,
                 1000,
+                maxRetriesPerLane,
                 signal,
               );
             } catch (staggerError: unknown) {
-              // If the staggered race also fails (e.g. all 3 lanes hit 500 errors), handle it natively.
-              // and let the loop naturally continue handling the error (which was presumably the same 429 or others).
-              // We grab the first error from the AggregateError or use it directly.
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-              const firstError =
+              // If the staggered race also fails (e.g. all 3 lanes hit 500 errors),
+              // we log it and let the main loop naturally continue handling the error
+              // with standard backoff.
+              const firstError: unknown =
                 staggerError instanceof AggregateError &&
                 staggerError.errors.length > 0
-                  ? staggerError.errors[0]
+                  ? (staggerError.errors as unknown[])[0]
                   : staggerError;
-              throw firstError;
+
+              debugLogger.warn(
+                `Parallel retry failed with: ${firstError instanceof Error ? firstError.message : String(firstError)}. Falling back to standard backoff...`,
+              );
+              // Fall through to continue the main loop
             }
           }
+          currentDelay = Math.min(maxDelayMs, currentDelay * 2);
           continue;
         } else {
           const errorStatus = getErrorStatus(error);

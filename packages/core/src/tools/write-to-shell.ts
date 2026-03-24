@@ -11,13 +11,13 @@ import {
   type ToolInvocation,
   type ToolResult,
   type ToolLiveOutput,
+  type ExecuteOptions,
 } from './tools.js';
 import { getErrorMessage } from '../utils/errors.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
 import { getToolSet } from './definitions/coreTools.js';
 import { ExecutionLifecycleService } from '../services/executionLifecycleService.js';
-import { type ShellExecutionConfig } from '../services/shellExecutionService.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 export interface WriteToShellParams {
@@ -60,7 +60,7 @@ export class WriteToShellInvocation extends BaseToolInvocation<
   async execute(
     _signal: AbortSignal,
     _updateOutput?: (output: ToolLiveOutput) => void,
-    _shellExecutionConfig?: ShellExecutionConfig,
+    _options?: ExecuteOptions,
   ): Promise<ToolResult> {
     try {
       const { pid, input, control_sequence } = this.params;

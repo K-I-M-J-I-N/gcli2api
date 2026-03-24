@@ -16,6 +16,7 @@ import type {
   CommandExecutionResponse,
 } from './types.js';
 import type { AgentLoopContext } from '@google/gemini-cli-core';
+import type { ExecuteOptions } from '@google/gemini-cli-core/tools/tools.js';
 
 const DEFAULT_SANITIZATION_CONFIG = {
   allowedEnvironmentVariables: [],
@@ -102,12 +103,13 @@ export class AddMemoryCommand implements Command {
     if (tool) {
       const abortController = new AbortController();
       const signal = abortController.signal;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       await tool.buildAndExecute(result.toolArgs, signal, undefined, {
         shellExecutionConfig: {
           sanitizationConfig: DEFAULT_SANITIZATION_CONFIG,
           sandboxManager: loopContext.sandboxManager,
         },
-      });
+      } as ExecuteOptions);
       await refreshMemory(context.config);
       return {
         name: this.name,

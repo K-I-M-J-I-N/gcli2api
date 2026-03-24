@@ -452,6 +452,7 @@ export class GeminiChat {
                     ),
                   3,
                   1000,
+                  Math.max(1, maxAttempts - attempt),
                   signal,
                 );
                 isConnectionPhase = false;
