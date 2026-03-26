@@ -93,6 +93,16 @@ function parseDurationInSeconds(duration: string): number | null {
     const milliseconds = parseFloat(duration.slice(0, -2));
     return isNaN(milliseconds) ? null : milliseconds / 1000;
   }
+
+  // Check for complex duration strings like "13h19m1.20964964s" or "1h30m"
+  const complexMatch = duration.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?$/);
+  if (complexMatch && (complexMatch[1] || complexMatch[2] || complexMatch[3])) {
+    const h = parseFloat(complexMatch[1] || '0');
+    const m = parseFloat(complexMatch[2] || '0');
+    const s = parseFloat(complexMatch[3] || '0');
+    return h * 3600 + m * 60 + s;
+  }
+
   if (duration.endsWith('s')) {
     const seconds = parseFloat(duration.slice(0, -1));
     return isNaN(seconds) ? null : seconds;
@@ -266,6 +276,17 @@ export function classifyGoogleError(error: unknown): unknown {
         return new RetryableQuotaError(errorMessage, cause, retryDelaySeconds);
       }
     } else if (status === 429 || status === 499) {
+      // Check for hard "Resource has been exhausted" message
+      if (errorMessage === 'Resource has been exhausted (e.g. check quota).') {
+        const cause = googleApiError ?? {
+          code: status,
+          message: errorMessage,
+          details: [],
+        };
+        // Use a 4-hour default cooldown for this terminal error
+        return new TerminalQuotaError(errorMessage, cause, 4 * 3600);
+      }
+
       // Fallback: If it is a 429 or 499 but doesn't have a specific "retry in" message,
       // assume it is a temporary rate limit and retry after 5 sec (same as DEFAULT_RETRY_OPTIONS).
       return new RetryableQuotaError(
@@ -328,6 +349,30 @@ export function classifyGoogleError(error: unknown): unknown {
       );
     }
 
+    // Treat QUOTA_EXHAUSTED as terminal regardless of domain
+    if (errorInfo.reason === 'QUOTA_EXHAUSTED') {
+      let resetDelaySeconds = delaySeconds;
+      if (errorInfo.metadata?.['quotaResetTimeStamp']) {
+        const resetTime = new Date(
+          errorInfo.metadata['quotaResetTimeStamp'],
+        ).getTime();
+        resetDelaySeconds = Math.max(0, (resetTime - Date.now()) / 1000);
+      } else if (errorInfo.metadata?.['quotaResetDelay']) {
+        const parsedDelay = parseDurationInSeconds(
+          errorInfo.metadata['quotaResetDelay'],
+        );
+        if (parsedDelay !== null) {
+          resetDelaySeconds = parsedDelay;
+        }
+      }
+      return new TerminalQuotaError(
+        `${googleApiError.message}`,
+        googleApiError,
+        resetDelaySeconds,
+        errorInfo.reason,
+      );
+    }
+
     // New Cloud Code API quota handling
     if (errorInfo.domain) {
       if (isCloudCodeDomain(errorInfo.domain)) {
@@ -348,12 +393,7 @@ export function classifyGoogleError(error: unknown): unknown {
           );
         }
         if (errorInfo.reason === 'QUOTA_EXHAUSTED') {
-          return new TerminalQuotaError(
-            `${googleApiError.message}`,
-            googleApiError,
-            delaySeconds,
-            errorInfo.reason,
-          );
+          // Handled above by the domain-independent check
         }
       }
     }

@@ -780,4 +780,80 @@ describe('classifyGoogleError', () => {
     const result = classifyGoogleError(new Error());
     expect(result).toBeInstanceOf(ValidationRequiredError);
   });
+
+  it('should parse quotaResetTimeStamp from metadata in ErrorInfo', () => {
+    const apiError: GoogleApiError = {
+      code: 429,
+      message: 'You have exhausted your capacity...',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'QUOTA_EXHAUSTED',
+          metadata: {
+            quotaResetTimeStamp: new Date(Date.now() + 3600000).toISOString(), // 1 hour later
+          },
+        },
+      ],
+    };
+    vi.spyOn(errorParser, 'parseGoogleApiError').mockReturnValue(apiError);
+    const result = classifyGoogleError(new Error());
+    expect(result).toBeInstanceOf(TerminalQuotaError);
+    const terminalError = result as TerminalQuotaError;
+    // Check that delay is roughly 3600000ms
+    expect(terminalError.retryDelayMs).toBeGreaterThan(3500000);
+    expect(terminalError.retryDelayMs).toBeLessThan(3700000);
+  });
+
+  it('should parse quotaResetDelay from metadata in ErrorInfo', () => {
+    const apiError: GoogleApiError = {
+      code: 429,
+      message: 'You have exhausted your capacity...',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'QUOTA_EXHAUSTED',
+          metadata: {
+            quotaResetDelay: '1h30m',
+          },
+        },
+      ],
+    };
+    vi.spyOn(errorParser, 'parseGoogleApiError').mockReturnValue(apiError);
+    const result = classifyGoogleError(new Error());
+    expect(result).toBeInstanceOf(TerminalQuotaError);
+    expect((result as TerminalQuotaError).retryDelayMs).toBe(5400000);
+  });
+
+  it('should classify "Resource has been exhausted" message as TerminalQuotaError with 4h cooldown', () => {
+    const apiError: GoogleApiError = {
+      code: 429,
+      message: 'Resource has been exhausted (e.g. check quota).',
+      details: [],
+    };
+    vi.spyOn(errorParser, 'parseGoogleApiError').mockReturnValue(apiError);
+    const result = classifyGoogleError(new Error());
+    expect(result).toBeInstanceOf(TerminalQuotaError);
+    expect((result as TerminalQuotaError).retryDelayMs).toBe(4 * 3600 * 1000);
+  });
+
+  it('should parse complex quotaResetDelay string "13h19m1s"', () => {
+    const apiError: GoogleApiError = {
+      code: 429,
+      message: 'Quota exceeded',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'QUOTA_EXHAUSTED',
+          metadata: {
+            quotaResetDelay: '13h19m1s',
+          },
+        },
+      ],
+    };
+    vi.spyOn(errorParser, 'parseGoogleApiError').mockReturnValue(apiError);
+    const result = classifyGoogleError(new Error());
+    expect(result).toBeInstanceOf(TerminalQuotaError);
+    // 13*3600 + 19*60 + 1 = 46800 + 1140 + 1 = 47941s = 47941000ms
+    expect((result as TerminalQuotaError).retryDelayMs).toBe(47941000);
+  });
 });
