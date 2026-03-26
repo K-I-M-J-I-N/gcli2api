@@ -15,3 +15,19 @@ export const shortAsciiLogo = `
 
 export const longAsciiLogo = shortAsciiLogo;
 export const tinyAsciiLogo = shortAsciiLogo;
+
+export const shortAsciiLogoCompactText = `
+▟▛▀▀█▖▜█▀▀▜▝██▙▗██▛▝█▛▝██▙ ▜█▘▜█▘
+▐█     ▐█▄▌  █▌▜█▘█▌ █▌ █▌▜▙▐█ ▐█ 
+▝█▖ ▜█▘▐█ ▘▗ █▌   █▌ █▌ █▌ ▜██ ▐█ 
+ ▝▀▀▀▀ ▀▀▀▀▀▝▀▀  ▝▀▀▝▀▀▝▀▀  ▀▀▘▀▀▘
+`;
+
+export const longAsciiLogoCompactText = shortAsciiLogoCompactText;
+
+export const tinyAsciiLogoCompactText = `
+▟▛▀▀█▖
+▐█     
+▝█▖ ▜█▘
+ ▝▀▀▀▀ 
+`;
