@@ -45,6 +45,7 @@ import type { ContentGenerator } from './contentGenerator.js';
 import { LoopDetectionService } from '../services/loopDetectionService.js';
 import { ChatCompressionService } from '../services/chatCompressionService.js';
 import { NotificationService } from '../services/notificationService.js';
+import { AgentHistoryProvider } from '../services/agentHistoryProvider.js';
 import { ideContextStore } from '../ide/ideContext.js';
 import {
   logContentRetryFailure,
@@ -71,11 +72,7 @@ import {
   applyModelSelection,
   createAvailabilityContextProvider,
 } from '../availability/policyHelpers.js';
-import {
-  getDisplayString,
-  resolveModel,
-  isGemini2Model,
-} from '../config/models.js';
+import { getDisplayString, resolveModel } from '../config/models.js';
 import { partToString } from '../utils/partUtils.js';
 import { coreEvents, CoreEvent } from '../utils/events.js';
 
@@ -99,6 +96,7 @@ export class GeminiClient {
 
   private readonly loopDetector: LoopDetectionService;
   private readonly compressionService: ChatCompressionService;
+  private readonly agentHistoryProvider: AgentHistoryProvider;
   private readonly toolOutputMaskingService: ToolOutputMaskingService;
   private lastPromptId: string;
   private currentSequenceModel: string | null = null;
@@ -114,6 +112,10 @@ export class GeminiClient {
   constructor(private readonly context: AgentLoopContext) {
     this.loopDetector = new LoopDetectionService(this.config);
     this.compressionService = new ChatCompressionService();
+    this.agentHistoryProvider = new AgentHistoryProvider(
+      this.config.agentHistoryProviderConfig,
+      this.config,
+    );
     this.toolOutputMaskingService = new ToolOutputMaskingService();
     this.lastPromptId = this.config.getSessionId();
 
@@ -132,6 +134,10 @@ export class GeminiClient {
   private handleMemoryChanged = () => {
     this.updateSystemInstruction();
   };
+
+  clearCurrentSequenceModel(): void {
+    this.currentSequenceModel = null;
+  }
 
   // Hook state to deduplicate BeforeAgent calls and track response for
   // AfterAgent
@@ -611,10 +617,20 @@ export class GeminiClient {
     // Check for context window overflow
     const modelForLimitCheck = this._getActiveModelForCurrentTurn();
 
-    const compressed = await this.tryCompressChat(prompt_id, false, signal);
+    if (this.config.getContextManagementConfig().enabled) {
+      const newHistory = await this.agentHistoryProvider.manageHistory(
+        this.getHistory(),
+        signal,
+      );
+      if (newHistory.length !== this.getHistory().length) {
+        this.getChat().setHistory(newHistory);
+      }
+    } else {
+      const compressed = await this.tryCompressChat(prompt_id, false, signal);
 
-    if (compressed.compressionStatus === CompressionStatus.COMPRESSED) {
-      yield { type: GeminiEventType.ChatCompressed, value: compressed };
+      if (compressed.compressionStatus === CompressionStatus.COMPRESSED) {
+        yield { type: GeminiEventType.ChatCompressed, value: compressed };
+      }
     }
 
     const remainingTokenCount =
@@ -802,10 +818,7 @@ export class GeminiClient {
     }
 
     if (isInvalidStream) {
-      if (
-        this.config.getContinueOnFailedApiCall() &&
-        isGemini2Model(modelToUse)
-      ) {
+      if (this.config.getContinueOnFailedApiCall()) {
         if (isInvalidStreamRetry) {
           logContentRetryFailure(
             this.config,
